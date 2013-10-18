@@ -1,0 +1,9 @@
+*.html
+*.pyc
+*.db
+.DS_Store
+*.log
+*.cfg
+*.cfg.live
+rss.xml
+*.sublime-workspace

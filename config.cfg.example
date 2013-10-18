@@ -1,0 +1,8 @@
+# configuration
+DEBUG = True
+DATABASE = 'picklr.db'
+SECRET_KEY = 'XXXXXXXX'
+
+# Fill these in!
+DROPBOX_APP_KEY = 'XXXXXXXX'
+DROPBOX_APP_SECRET = 'XXXXXXXX'
