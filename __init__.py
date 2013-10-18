@@ -76,7 +76,7 @@ def get_db_images():
     userid = db.execute('SELECT id FROM users WHERE username = ?', [username]).fetchone()
     if userid is None:
         return None
-    rows = db.execute('SELECT path FROM images WHERE user_id = ?', [userid[0]]).fetchall()
+    rows = db.execute('SELECT path, sharekey FROM images WHERE user_id = ?', [userid[0]]).fetchall()
     if rows is None:
         return None
     return rows
@@ -89,8 +89,9 @@ def home():
     real_name = None
     files = None
     folderdata = None
-    image = None
-    print(access_token)
+    dbimageslist = None
+    dbimages = None
+    # print(access_token)
     if access_token is not None:
         client = DropboxClient(access_token)
         account_info = client.account_info()
@@ -99,26 +100,37 @@ def home():
         files = [f['path'] for f in folderdata['contents']]
         dbimages = get_db_images()
         userid = get_user_id()
-        print dbimages
+        dbimageslist = [item[0] for item in dbimages]
+        # print dbimageslist
         db = get_db()
+        updates = False
         for path in files:
             filename = os.path.basename(path)
             # print path
             # print filename
-            print (filename,)
-            print (filename,) in dbimages # WHY IS THIS FALSE???
-            if (filename,) not in dbimages:
-                print 'not in db, inserting'
+            #print (filename,)
+            #print (filename,) in dbimages # WHY IS THIS FALSE???
+            #if (filename,) not in dbimages:
+            if filename not in dbimageslist:
+                updates = True
+                print filename + ' not in db, inserting'
                 share = client.share(path, short_url=False)
                 parts = urlparse.urlparse(share['url'])
                 sharekey = parts.path.split('/')[2]
                 db.execute('INSERT OR IGNORE INTO images (sharekey, path, user_id) VALUES (?, ?, ?)', [sharekey, filename, userid])
                 db.commit()
+                to_file = open(os.path.join(currentpath, 'static', 'thumbs', filename), "wb")
+                thumb = client.thumbnail(path, size='large', format='JPEG')
+                to_file.write(thumb.read())
+
+        # If new images have been added, re-fetch the images from the database
+        if updates:
+            dbimages = get_db_images()
 
         # share = client.share(files[0], short_url=False)
         # image = re.sub(r"(www\.dropbox\.com)", "dl.dropboxusercontent.com", share['url'])
 
-    return render_template('index.html', real_name=real_name)
+    return render_template('index.html', real_name=real_name, images=dbimages)
 
 @app.route('/dropbox-auth-finish')
 def dropbox_auth_finish():
