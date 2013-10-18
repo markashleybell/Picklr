@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+import urlparse
 import posixpath
 import re
 
@@ -9,6 +10,7 @@ from flask import Flask, request, session, g, redirect, url_for, abort, \
      render_template, flash, _app_ctx_stack
 
 from dropbox.client import DropboxClient, DropboxOAuth2Flow
+from dropbox.rest import ErrorResponse
 
 # create our little application :)
 app = Flask(__name__)
@@ -56,6 +58,29 @@ def get_access_token():
         return None
     return row[0]
 
+def get_user_id():
+    username = session.get('user')
+    if username is None:
+        return None
+    db = get_db()
+    row = db.execute('SELECT id FROM users WHERE username = ?', [username]).fetchone()
+    if row is None:
+        return None
+    return row[0]
+
+def get_db_images():
+    username = session.get('user')
+    if username is None:
+        return None
+    db = get_db()
+    userid = db.execute('SELECT id FROM users WHERE username = ?', [username]).fetchone()
+    if userid is None:
+        return None
+    rows = db.execute('SELECT path FROM images WHERE user_id = ?', [userid[0]]).fetchall()
+    if rows is None:
+        return None
+    return rows
+
 @app.route('/')
 def home():
     if 'user' not in session:
@@ -72,9 +97,28 @@ def home():
         real_name = account_info["display_name"]
         folderdata = client.metadata('/Images', list=True, file_limit=25000, hash=None, rev=None, include_deleted=False)
         files = [f['path'] for f in folderdata['contents']]
-        share = client.share(files[0], short_url=False)
-        image = re.sub(r"(www\.dropbox\.com)", "dl.dropboxusercontent.com", share['url'])
-    return render_template('index.html', real_name=real_name, files=files, folderdata=folderdata, image=image, access_token=access_token)
+        dbimages = get_db_images()
+        userid = get_user_id()
+        print dbimages
+        db = get_db()
+        for path in files:
+            filename = os.path.basename(path)
+            # print path
+            # print filename
+            print (filename,)
+            print (filename,) in dbimages # WHY IS THIS FALSE???
+            if (filename,) not in dbimages:
+                print 'not in db, inserting'
+                share = client.share(path, short_url=False)
+                parts = urlparse.urlparse(share['url'])
+                sharekey = parts.path.split('/')[2]
+                db.execute('INSERT OR IGNORE INTO images (sharekey, path, user_id) VALUES (?, ?, ?)', [sharekey, filename, userid])
+                db.commit()
+
+        # share = client.share(files[0], short_url=False)
+        # image = re.sub(r"(www\.dropbox\.com)", "dl.dropboxusercontent.com", share['url'])
+
+    return render_template('index.html', real_name=real_name)
 
 @app.route('/dropbox-auth-finish')
 def dropbox_auth_finish():
@@ -100,7 +144,10 @@ def dropbox_auth_finish():
     db.execute('UPDATE users SET access_token = ? WHERE username = ?', data)
     db.commit()
     client = DropboxClient(access_token)
-    client.file_create_folder('/Images')
+    try:
+        client.file_create_folder('/Images')
+    except ErrorResponse:
+        print 'Folder already exists'
     return redirect(url_for('home'))
 
 @app.route('/dropbox-auth-start')
@@ -121,7 +168,7 @@ def dropbox_unlink():
 
 def get_auth_flow():
     redirect_uri = url_for('dropbox_auth_finish', _external=True)
-    return DropboxOAuth2Flow(DROPBOX_APP_KEY, DROPBOX_APP_SECRET, redirect_uri,
+    return DropboxOAuth2Flow(app.config['DROPBOX_APP_KEY'], app.config['DROPBOX_APP_SECRET'], redirect_uri,
                                        session, 'dropbox-auth-csrf-token')
 
 @app.route('/login', methods=['GET', 'POST'])
