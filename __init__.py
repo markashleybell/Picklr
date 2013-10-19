@@ -113,14 +113,14 @@ def home():
             #if (filename,) not in dbimages:
             if filename not in dbimageslist:
                 updates = True
-                print filename + ' not in db, inserting'
+                # print filename + ' not in db, inserting'
                 share = client.share(path, short_url=False)
                 parts = urlparse.urlparse(share['url'])
                 sharekey = parts.path.split('/')[2]
                 db.execute('INSERT OR IGNORE INTO images (sharekey, path, user_id) VALUES (?, ?, ?)', [sharekey, filename, userid])
                 db.commit()
                 to_file = open(os.path.join(currentpath, 'static', 'thumbs', filename), "wb")
-                thumb = client.thumbnail(path, size='large', format='JPEG')
+                thumb = client.thumbnail(path, size='l', format='JPEG')
                 to_file.write(thumb.read())
 
         # If new images have been added, re-fetch the images from the database

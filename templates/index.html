@@ -5,7 +5,7 @@
     <p><a href="{{ url_for('dropbox_unlink') }} " method="post">Unlink</a></p>
 
     {% for image in images %}
-    <p><img src="https://dl.dropboxusercontent.com/s/{{ image[1] }}/{{ image[0] }}" /></p>
+    <p><a href="https://dl.dropboxusercontent.com/s/{{ image[1] }}/{{ image[0]|urlencode() }}"><img src="/static/thumbs/{{ image[0]|urlencode() }}" /></a></p>
     {% endfor %}
 
   {% else %}
