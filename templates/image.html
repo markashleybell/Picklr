@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<head>
+    <title>Dropbox Example</title>
+    <link rel=stylesheet type=text/css href="{{ url_for('static', filename='css/main.min.css') }}">
+</head>
+<body>
+    <div id="large-image-container">
+        <div id="large-image">
+            <img src="https://dl.dropboxusercontent.com/s/{{ image[2] }}/{{ image[1]|urlencode() }}" /></a>
+        </div>
+    </div>
+</body>

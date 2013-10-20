@@ -76,7 +76,7 @@ def get_db_images():
     userid = db.execute('SELECT id FROM users WHERE username = ?', [username]).fetchone()
     if userid is None:
         return None
-    rows = db.execute('SELECT path, sharekey FROM images WHERE user_id = ?', [userid[0]]).fetchall()
+    rows = db.execute('SELECT id, path, sharekey FROM images WHERE user_id = ?', [userid[0]]).fetchall()
     if rows is None:
         return None
     return rows
@@ -100,7 +100,7 @@ def home():
         files = [f['path'] for f in folderdata['contents']]
         dbimages = get_db_images()
         userid = get_user_id()
-        dbimageslist = [item[0] for item in dbimages]
+        dbimageslist = [item[1] for item in dbimages]
         # print dbimageslist
         db = get_db()
         updates = False
@@ -113,15 +113,16 @@ def home():
             #if (filename,) not in dbimages:
             if filename not in dbimageslist:
                 updates = True
-                # print filename + ' not in db, inserting'
+                print 'not in db, inserting'
                 share = client.share(path, short_url=False)
                 parts = urlparse.urlparse(share['url'])
                 sharekey = parts.path.split('/')[2]
-                db.execute('INSERT OR IGNORE INTO images (sharekey, path, user_id) VALUES (?, ?, ?)', [sharekey, filename, userid])
+                cursor = db.cursor()
+                cursor.execute('INSERT OR IGNORE INTO images (sharekey, path, user_id) VALUES (?, ?, ?)', [sharekey, filename, userid])
                 db.commit()
-                to_file = open(os.path.join(currentpath, 'static', 'thumbs', filename), "wb")
+                thumbfile = open(os.path.join(currentpath, 'static', 'img', 'thumbs', str(cursor.lastrowid) + '.jpg'), "wb")
                 thumb = client.thumbnail(path, size='l', format='JPEG')
-                to_file.write(thumb.read())
+                thumbfile.write(thumb.read())
 
         # If new images have been added, re-fetch the images from the database
         if updates:
@@ -131,6 +132,16 @@ def home():
         # image = re.sub(r"(www\.dropbox\.com)", "dl.dropboxusercontent.com", share['url'])
 
     return render_template('index.html', real_name=real_name, images=dbimages)
+
+@app.route('/image/<int:id>')
+def image(id):
+    if 'user' not in session:
+        return redirect(url_for('login'))
+    userid = get_user_id()
+    db = get_db()
+    row = db.execute('SELECT id, path, sharekey FROM images WHERE id = ? AND user_id = ?', [id, userid]).fetchone()
+
+    return render_template('image.html', image=row)
 
 @app.route('/dropbox-auth-finish')
 def dropbox_auth_finish():
