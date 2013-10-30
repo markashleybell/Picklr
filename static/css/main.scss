@@ -474,8 +474,8 @@ $thumb-padding: 10px;
   display: inline-block;
   vertical-align: middle;
   
-  width: 100%;
-  max-width: 600px;
+
+  max-width: 760px;
   text-align: left;
   background: #888;
   margin: 0 auto;
@@ -487,6 +487,8 @@ $thumb-padding: 10px;
    *margin-top: expression(this.offsetHeight < this.parentNode.offsetHeight ? parseInt((this.parentNode.offsetHeight - this.offsetHeight) / 2) + "px" : "0");
 
    img {
-        max-width: 600px;
+        max-width: 760px;
+        display: block;
+
    }
 }
