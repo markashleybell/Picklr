@@ -5,8 +5,7 @@
 </head>
 <body>
     <div id="container">
-        <h1>Dropbox Example</h1>
-        <div class=metanav>
+        <div>
         {% if not session.user %}
         <a href="{{ url_for('login') }}">log in</a>
         {% else %}
@@ -14,7 +13,7 @@
         {% endif %}
         </div>
         {% for message in get_flashed_messages() %}
-        <div class=flash>{{ message }}</div>
+        <div>{{ message }}</div>
         {% endfor %}
         {% block body %}{% endblock %}
     </div>

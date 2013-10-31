@@ -76,7 +76,7 @@ def get_db_images():
     userid = db.execute('SELECT id FROM users WHERE username = ?', [username]).fetchone()
     if userid is None:
         return None
-    rows = db.execute('SELECT id, path, sharekey FROM images WHERE user_id = ?', [userid[0]]).fetchall()
+    rows = db.execute('SELECT id, path, sharekey, date_added FROM images WHERE user_id = ?', [userid[0]]).fetchall()
     if rows is None:
         return None
     return rows
@@ -91,7 +91,6 @@ def home():
     folderdata = None
     dbimageslist = None
     dbimages = None
-    # print(access_token)
     if access_token is not None:
         client = DropboxClient(access_token)
         account_info = client.account_info()
@@ -101,16 +100,10 @@ def home():
         dbimages = get_db_images()
         userid = get_user_id()
         dbimageslist = [item[1] for item in dbimages]
-        # print dbimageslist
         db = get_db()
         updates = False
         for path in files:
             filename = os.path.basename(path)
-            # print path
-            # print filename
-            #print (filename,)
-            #print (filename,) in dbimages # WHY IS THIS FALSE???
-            #if (filename,) not in dbimages:
             if filename not in dbimageslist:
                 updates = True
                 print 'not in db, inserting'
@@ -131,7 +124,7 @@ def home():
         # share = client.share(files[0], short_url=False)
         # image = re.sub(r"(www\.dropbox\.com)", "dl.dropboxusercontent.com", share['url'])
 
-    return render_template('index.html', real_name=real_name, images=dbimages)
+    return render_template('index.html', real_name=real_name, images=dbimages, files=len(files))
 
 @app.route('/image/<int:id>')
 def image(id):
