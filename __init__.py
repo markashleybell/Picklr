@@ -109,22 +109,27 @@ def home():
         print delta
         # The first time we retrieve the delta it will consist of a single entry for 
         # the /Images sub folder of our app folder, so ignore this if present
-        files = [f[1]["path"] for f in delta["entries"] if f[1]["path"] != "/Images"]
+        files = [item for item in delta["entries"] if item[0] != "/images"]
 
-        for path in files:
-            filename = os.path.basename(path)
+        for f in files:
             updates = True
-            print "new file in delta, inserting"
-            share = client.share(path, short_url=False)
-            parts = urlparse.urlparse(share["url"])
-            sharekey = parts.path.split("/")[2]
-            cursor = db.cursor()
-            cursor.execute("INSERT OR IGNORE INTO images (sharekey, path, user_id) VALUES (?, ?, ?)", [sharekey, filename, userid])
-            db.commit()
-            thumbfile = open(os.path.join(currentpath, "static", "img", "thumbs", str(cursor.lastrowid) + ".jpg"), "wb")
-            print path
-            thumb = client.thumbnail(path, size="l", format="JPEG")
-            thumbfile.write(thumb.read())
+            fpath = f[0]
+            filename = os.path.basename(fpath)
+            if f[1] is not None:
+                print "new file in delta, inserting " + filename
+                share = client.share(fpath, short_url=False)
+                parts = urlparse.urlparse(share["url"])
+                sharekey = parts.path.split("/")[2]
+                cursor = db.cursor()
+                cursor.execute("INSERT OR IGNORE INTO images (sharekey, path, user_id) VALUES (?, ?, ?)", [sharekey, filename, userid])
+                db.commit()
+                thumbfile = open(os.path.join(currentpath, "static", "img", "thumbs", str(cursor.lastrowid) + ".jpg"), "wb")
+                thumb = client.thumbnail(fpath, size="l", format="JPEG")
+                thumbfile.write(thumb.read())
+            else:
+                print "deleted file in delta, deleting " + filename
+                db.execute("DELETE FROM images WHERE path = ? and user_id = ?", [filename, userid])
+                db.commit()
 
         db.execute("UPDATE users SET delta_cursor = ? WHERE id = ?", [delta["cursor"], userid])
         db.commit()
@@ -199,6 +204,7 @@ def dropbox_unlink():
     db = get_db()
     db.execute("UPDATE users SET access_token = NULL WHERE id = ?", [userid])
     db.commit()
+    session.clear();
     return redirect(url_for("home"))
 
 
