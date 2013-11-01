@@ -89,7 +89,7 @@ def get_db_images(fromid, pagesize):
 
 @app.route("/")
 def home():
-    if "user_id" not in session:
+    if "user_id" not in session or session["user_id"] is 0:
         session["user_id"] = 0
         return redirect(get_auth_flow().start())
     access_token = get_access_token()
@@ -106,7 +106,7 @@ def home():
         userid = get_user_id()
         old_cursor = db.execute("SELECT delta_cursor FROM users WHERE id = ?", [userid]).fetchone()
         delta = client.delta() if old_cursor[0] is None else client.delta(old_cursor[0])
-        print delta
+        # print delta
         # The first time we retrieve the delta it will consist of a single entry for 
         # the /Images sub folder of our app folder, so ignore this if present
         files = [item for item in delta["entries"] if item[0] != "/images"]
@@ -204,7 +204,7 @@ def dropbox_unlink():
     db = get_db()
     db.execute("UPDATE users SET access_token = NULL WHERE id = ?", [userid])
     db.commit()
-    session.clear();
+    session.clear()
     return redirect(url_for("home"))
 
 
