@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT UNIQUE NOT NULL,
-    access_token BLOB
+    id INTEGER PRIMARY KEY,
+    access_token BLOB,
+    delta_cursor TEXT
 );
 
 CREATE TABLE IF NOT EXISTS images (

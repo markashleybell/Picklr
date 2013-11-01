@@ -5,16 +5,6 @@
 </head>
 <body>
     <div id="container">
-        <div>
-        {% if not session.user %}
-        <a href="{{ url_for('login') }}">log in</a>
-        {% else %}
-        <a href="{{ url_for('logout') }}">log out</a>
-        {% endif %}
-        </div>
-        {% for message in get_flashed_messages() %}
-        <div>{{ message }}</div>
-        {% endfor %}
         {% block body %}{% endblock %}
     </div>
 </body>
