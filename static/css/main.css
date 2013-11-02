@@ -388,8 +388,8 @@ html, body {
 #thumbs > div {
     float: left;
     margin: 20px 0 0 20px;
-    width: 200px;
-    height: 200px;
+    width: 140px;
+    height: 140px;
     background-color: #9E9E9E;
     border: solid 1px #8A8A8A;
     -webkit-border-radius: 3px;
@@ -399,8 +399,8 @@ html, body {
 #thumbs > div a {
     display: table-cell;
     vertical-align: middle;
-    width: 200px;
-    height: 200px;
+    width: 140px;
+    height: 140px;
 }
 #thumbs > div a img {
     display: block;

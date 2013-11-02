@@ -5,6 +5,8 @@ import urlparse
 import posixpath
 import re
 
+from functools import wraps
+
 from sqlite3 import dbapi2 as sqlite3
 from flask import Flask, request, session, g, redirect, url_for, abort, \
      render_template, flash, _app_ctx_stack
@@ -12,7 +14,7 @@ from flask import Flask, request, session, g, redirect, url_for, abort, \
 from dropbox.client import DropboxClient, DropboxOAuth2Flow
 from dropbox.rest import ErrorResponse
 
-# create our little application :)
+
 app = Flask(__name__)
 app.config.from_pyfile('config.cfg')
 
@@ -28,8 +30,19 @@ except OSError:
     pass
 
 
+def check_session(method):
+    """Redirect to OAuth flow if there is no user session"""
+    @wraps(method)
+    def f(*args, **kwargs):
+        if session.get("user_id", 0) is 0:
+            session["user_id"] = 0
+            return redirect(get_auth_flow().start())
+        return method(*args, **kwargs)
+    return f
+
+
 def init_db():
-    """Creates the database tables."""
+    """Create the database tables"""
     with app.app_context():
         db = get_db()
         with app.open_resource("schema.sql", mode="r") as f:
@@ -38,124 +51,122 @@ def init_db():
 
 
 def get_db():
-    """
-    Opens a new database connection if there is none yet for the current application context.
-    """
+    """Open a new database connection if there is none yet
+    for the current application context"""
     top = _app_ctx_stack.top
     if not hasattr(top, "sqlite_db"):
         sqlite_db = sqlite3.connect(os.path.join(dbpath, app.config["DATABASE"]))
         sqlite_db.row_factory = sqlite3.Row
         top.sqlite_db = sqlite_db
-
     return top.sqlite_db
 
 
-def get_access_token():
-    userid = session.get("user_id")
-    if userid is None:
-        return None
-    db = get_db()
-    row = db.execute("SELECT access_token FROM users WHERE id = ?", [userid]).fetchone()
-    if row is None:
-        return None
-    return row[0]
+def get_access_token(db, user_id):
+    """Get the OAuth access token for the specified user"""
+    row = db.execute("SELECT access_token FROM users WHERE id = ?", [user_id]).fetchone()
+    return None if row is None else row[0]
 
 
-def get_user_id():
-    userid = session.get("user_id")
-    if userid is None:
-        return None
-    db = get_db()
-    row = db.execute("SELECT id FROM users WHERE id = ?", [userid]).fetchone()
-    if row is None:
-        return None
-    return row[0]
+def get_auth_flow():
+    """Shortcut function which returns Dropbox auth flow helper"""
+    redirect_uri = url_for("dropbox_auth_finish", _external=True)
+    return DropboxOAuth2Flow(app.config["DROPBOX_APP_KEY"], 
+                             app.config["DROPBOX_APP_SECRET"], 
+                             redirect_uri,
+                             session, 
+                             "dropbox-auth-csrf-token")
 
 
-def get_db_images(fromid, pagesize):
-    userid = session.get("user_id")
-    if userid is None:
-        return None
-    db = get_db()
+def get_db_images(db, user_id, fromid, pagesize):
+    """Get a user's image records from the db, with optional paging"""
     # if fromid > 0:
     #     sql += "AND id > ? "
     # if pagesize > 0:
     #     sql += "LIMIT " + pagesize
-    rows = db.execute("SELECT id, path, sharekey, date_added FROM images WHERE user_id = ?", [userid]).fetchall()
-    if rows is None:
-        return None
-    return rows
+    rows = db.execute("SELECT id, path, sharekey, date_added FROM images WHERE user_id = ?", [user_id]).fetchall()
+    return None if rows is None else rows
 
 
 @app.route("/")
+@check_session
 def home():
-    if "user_id" not in session or session["user_id"] is 0:
-        session["user_id"] = 0
-        return redirect(get_auth_flow().start())
-    access_token = get_access_token()
+    db = get_db()
+    user_id = session.get("user_id", 0)
+    access_token = get_access_token(db, user_id)
     real_name = None
     files = None
-    folderdata = None
-    dbimageslist = None
-    dbimages = None
+
     if access_token is not None:
         client = DropboxClient(access_token)
         account_info = client.account_info()
         real_name = account_info["display_name"]
-        db = get_db()
-        userid = get_user_id()
-        old_cursor = db.execute("SELECT delta_cursor FROM users WHERE id = ?", [userid]).fetchone()
+        
+        # Get the previous delta cursor hash (if present) so we only pull
+        # down changes which occurred since the last time we updated
+        old_cursor = db.execute("SELECT delta_cursor FROM users WHERE id = ?", [user_id]).fetchone()
         delta = client.delta() if old_cursor[0] is None else client.delta(old_cursor[0])
-        # print delta
+        print delta
         # The first time we retrieve the delta it will consist of a single entry for 
         # the /Images sub folder of our app folder, so ignore this if present
         files = [item for item in delta["entries"] if item[0] != "/images"]
 
         for f in files:
-            updates = True
+            # The delta API call returns a list of two-element lists
+            # Element 0 is the lowercased file path, element 1 is the file metadata
             fpath = f[0]
             filename = os.path.basename(fpath)
-            if f[1] is not None:
-                print "new file in delta, inserting " + filename
+            # If the metadata is empty, it means the file/folder has been deleted
+            if f[1] is None:
+                # Delete the file
+                db.execute("DELETE FROM images WHERE path = ? and user_id = ?", [filename, user_id])
+                db.commit()
+                # TODO: Delete the local thumbnail for the image which was removed
+            else:
+                # Get the publically accessible share URL for this file
                 share = client.share(fpath, short_url=False)
                 parts = urlparse.urlparse(share["url"])
+                # We store the share key/hash separately from the file path in
+                # case it expires and we need to re-retrieve the share later
                 sharekey = parts.path.split("/")[2]
-                cursor = db.cursor()
-                cursor.execute("INSERT OR IGNORE INTO images (sharekey, path, user_id) VALUES (?, ?, ?)", [sharekey, filename, userid])
-                db.commit()
-                thumbfile = open(os.path.join(currentpath, "static", "img", "thumbs", str(cursor.lastrowid) + ".jpg"), "wb")
-                thumb = client.thumbnail(fpath, size="l", format="JPEG")
-                thumbfile.write(thumb.read())
-            else:
-                print "deleted file in delta, deleting " + filename
-                db.execute("DELETE FROM images WHERE path = ? and user_id = ?", [filename, userid])
-                db.commit()
+                # Insert or update the file
+                imageid = "0"
+                existing = db.execute("SELECT id FROM images WHERE path = ?", [filename]).fetchone()
+                if existing is None:
+                    cursor = db.cursor()
+                    cursor.execute("INSERT INTO images (sharekey, path, user_id) VALUES (?, ?, ?)", [sharekey, filename, user_id])
+                    db.commit()
+                    imageid = str(cursor.lastrowid)
+                else:
+                    imageid = str(existing[0])
+                # Grab the thumbnail from Dropbox and save it *locally*, 
+                # using the id of the image record we've just inserted
+                thumbfile = open(os.path.join(currentpath, "static", "img", "thumbs", imageid + ".jpg"), "wb")
+                thumb = client.thumbnail(fpath, size="m", format="JPEG")
+                thumbfile.write(thumb.read())                
 
-        db.execute("UPDATE users SET delta_cursor = ? WHERE id = ?", [delta["cursor"], userid])
+        # Update the cursor hash stored against the user so we can retrieve
+        # a delta of just the changes from this point onward next time we update
+        db.execute("UPDATE users SET delta_cursor = ? WHERE id = ?", [delta["cursor"], user_id])
         db.commit()
 
-        # Now fetch all the images from the DB
-        dbimages = get_db_images(0, 0)
+        # Now fetch all the images from the DB and pass them to the view
+        dbimages = get_db_images(db, user_id, 0, 0)
 
-        # share = client.share(files[0], short_url=False)
-        # image = re.sub(r"(www\.dropbox\.com)", "dl.dropboxusercontent.com", share["url"])
-
-    return render_template("index.html", user_id=session["user_id"], real_name=real_name, images=dbimages, files=len(dbimages) if dbimages is not None else 0)
+    return render_template("index.html", user_id=user_id, real_name=real_name, images=dbimages, files=len(dbimages) if dbimages is not None else 0)
 
 
 @app.route("/import")
+@check_session
 def import_images():
     return render_template("index.html")
 
 
 @app.route("/image/<int:id>")
+@check_session
 def image(id):
-    if "user_id" not in session:
-        return redirect(url_for("login"))
-    userid = get_user_id()
+    user_id = session.get("user_id", 0)
     db = get_db()
-    row = db.execute("SELECT id, path, sharekey FROM images WHERE id = ? AND user_id = ?", [id, userid]).fetchone()
-
+    row = db.execute("SELECT id, path, sharekey FROM images WHERE id = ? AND user_id = ?", [id, user_id]).fetchone()
     return render_template("image.html", image=row)
 
 
@@ -189,6 +200,7 @@ def dropbox_auth_finish():
 
     session["user_id"] = user_id
     client = DropboxClient(access_token)
+    # Create the /Images sub folder in the user's app folder
     try:
         client.file_create_folder("/Images")
     except ErrorResponse:
@@ -198,20 +210,14 @@ def dropbox_auth_finish():
 
 @app.route("/dropbox-unlink")
 def dropbox_unlink():
-    userid = session.get("user_id")
-    if userid is None:
+    user_id = session.get("user_id")
+    if user_id is None:
         abort(403)
     db = get_db()
-    db.execute("UPDATE users SET access_token = NULL WHERE id = ?", [userid])
+    db.execute("UPDATE users SET access_token = NULL WHERE id = ?", [user_id])
     db.commit()
     session.clear()
     return redirect(url_for("home"))
-
-
-def get_auth_flow():
-    redirect_uri = url_for("dropbox_auth_finish", _external=True)
-    return DropboxOAuth2Flow(app.config["DROPBOX_APP_KEY"], app.config["DROPBOX_APP_SECRET"], redirect_uri,
-                                       session, "dropbox-auth-csrf-token")
 
 
 def main():
