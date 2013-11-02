@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS images (
     date_added DATETIME DEFAULT CURRENT_TIMESTAMP,
     sharekey TEXT UNIQUE NOT NULL,
     path TEXT UNIQUE NOT NULL,
+    tags TEXT,
     user_id INTEGER NOT NULL,
     FOREIGN KEY(user_id) REFERENCES users(id)
 );

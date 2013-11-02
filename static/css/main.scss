@@ -431,13 +431,21 @@ $thumb-size: 140px;
     width: 100%;
     > div {
         float: left;
+        position: relative;
         margin: 20px 0 0 20px;
         width: $thumb-size;
         height: $thumb-size;
         background-color: #9E9E9E;
         border: solid 1px #8A8A8A;
         @include borderRadius(3px);
-        a {
+        a.edit-tags {
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            width: 16px;
+            height: 16px;
+        }
+        a.view-large {
             display: table-cell;
             vertical-align: middle;
             width: $thumb-size;
@@ -450,6 +458,10 @@ $thumb-size: 140px;
             }
         }
     }
+}
+
+#tag-editor {
+    display: none;
 }
 
 #large-image-container {

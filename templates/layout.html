@@ -1,10 +1,17 @@
 <!DOCTYPE html>
 <head>
     <title>Dropbox Example</title>
-    <link rel=stylesheet type=text/css href="{{ url_for('static', filename='css/main.min.css') }}">
+    <link rel="stylesheet" type="text/css" href="//ajax.googleapis.com/ajax/libs/jqueryui/1.10.3/themes/flick/jquery-ui.min.css" />
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/jquery.tagit.min.css') }}" />
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/main.min.css') }}" />
+    <script type="text/javascript"> window.q=[]; window.$=function(f){ q.push(f); }; </script>
 </head>
 <body>
     <div id="container">
         {% block body %}{% endblock %}
     </div>
+    <script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+    <script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jqueryui/1.10.3/jquery-ui.min.js"></script>
+    <script type="text/javascript" src="{{ url_for('static', filename='js/tag-it.min.js') }}" charset="utf-8"></script>
+    <script type="text/javascript"> $.each(q,function(index,f){ $(f); }); </script>
 </body>

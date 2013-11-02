@@ -387,6 +387,7 @@ html, body {
 }
 #thumbs > div {
     float: left;
+    position: relative;
     margin: 20px 0 0 20px;
     width: 140px;
     height: 140px;
@@ -396,17 +397,28 @@ html, body {
     -moz-border-radius: 3px;
     border-radius: 3px;
 }
-#thumbs > div a {
+#thumbs > div a.edit-tags {
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    width: 16px;
+    height: 16px;
+}
+#thumbs > div a.view-large {
     display: table-cell;
     vertical-align: middle;
     width: 140px;
     height: 140px;
 }
-#thumbs > div a img {
+#thumbs > div a.view-large img {
     display: block;
     margin: 0 auto;
     max-width: 180px;
     max-height: 180px;
+}
+
+#tag-editor {
+    display: none;
 }
 
 #large-image-container {

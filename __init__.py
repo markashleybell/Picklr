@@ -9,7 +9,7 @@ from functools import wraps
 
 from sqlite3 import dbapi2 as sqlite3
 from flask import Flask, request, session, g, redirect, url_for, abort, \
-     render_template, flash, _app_ctx_stack
+     render_template, flash, _app_ctx_stack, jsonify
 
 from dropbox.client import DropboxClient, DropboxOAuth2Flow
 from dropbox.rest import ErrorResponse
@@ -83,7 +83,7 @@ def get_db_images(db, user_id, fromid, pagesize):
     #     sql += "AND id > ? "
     # if pagesize > 0:
     #     sql += "LIMIT " + pagesize
-    rows = db.execute("SELECT id, path, sharekey, date_added FROM images WHERE user_id = ?", [user_id]).fetchall()
+    rows = db.execute("SELECT id, path, sharekey, date_added, tags FROM images WHERE user_id = ?", [user_id]).fetchall()
     return None if rows is None else rows
 
 
@@ -100,12 +100,10 @@ def home():
         client = DropboxClient(access_token)
         account_info = client.account_info()
         real_name = account_info["display_name"]
-        
         # Get the previous delta cursor hash (if present) so we only pull
         # down changes which occurred since the last time we updated
         old_cursor = db.execute("SELECT delta_cursor FROM users WHERE id = ?", [user_id]).fetchone()
         delta = client.delta() if old_cursor[0] is None else client.delta(old_cursor[0])
-        print delta
         # The first time we retrieve the delta it will consist of a single entry for 
         # the /Images sub folder of our app folder, so ignore this if present
         files = [item for item in delta["entries"] if item[0] != "/images"]
@@ -153,6 +151,38 @@ def home():
         dbimages = get_db_images(db, user_id, 0, 0)
 
     return render_template("index.html", user_id=user_id, real_name=real_name, images=dbimages, files=len(dbimages) if dbimages is not None else 0)
+
+
+@app.route("/update-tags", methods=['POST'])
+@check_session
+def update_tags():
+    user_id = session.get("user_id", 0)
+    db = get_db()
+    image_id = request.form["imgid"]
+    new_tag_sql = "SELECT tag, id FROM tags WHERE user_id = ?"
+    # Get a dictionary of all this user's tags, with tag as key and id as value
+    dbtags = { k : v for k, v in db.execute(new_tag_sql, [user_id]).fetchall() }
+    # Get a list of the posted tags
+    tags = [tag.strip() for tag in request.form["tags"].split("|")]
+    # Delete all the tag joins for this image
+    db.execute("DELETE FROM tags_images WHERE image_id = ?", [image_id])
+    # Loop through all the posted tags
+    for tag in tags:
+        # If a tag isn't already in the db
+        if tag not in dbtags:
+            cursor = db.cursor()
+            cursor.execute("INSERT INTO tags (tag, user_id) VALUES (?, ?)", [tag, user_id])
+            db.commit();
+            # Add the new tag and id to the dbtags dict so we don't have to query for it again
+            dbtags[tag] = cursor.lastrowid;
+        # Insert a join record for this tag/image
+        db.execute("INSERT INTO tags_images (tag_id, image_id) VALUES (?, ?)", [dbtags[tag], image_id])
+        db.commit();
+    # Update the flattened tags field of the image record, for convenience
+    db.execute("UPDATE images SET tags = ? WHERE id = ?", ["|".join(tags), image_id])
+    db.commit();
+    # return jsonify({"success": 1})
+    return redirect(url_for("home"))
 
 
 @app.route("/import")
