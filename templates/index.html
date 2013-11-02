@@ -8,7 +8,7 @@
             var form = $('#tag-editor');
 
             tagInput.tagit({
-                availableTags: ['city','cool','photography'],
+                availableTags: [{{ tagstring|safe }}],
                 singleFieldDelimiter: '|',
                 autocomplete: {
                     delay: 0, 
@@ -26,6 +26,7 @@
                     tagInput.tagit('createTag', item);
                 });
                 form.show();
+                form.find('.tagit input[type=text]:first').focus();
             });
         });
     </script>

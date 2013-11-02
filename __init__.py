@@ -87,6 +87,12 @@ def get_db_images(db, user_id, fromid, pagesize):
     return None if rows is None else rows
 
 
+def get_db_tags(db, user_id):
+    """Get a user's tags from the db"""
+    rows = db.execute("SELECT tag FROM tags WHERE user_id = ?", [user_id]).fetchall()
+    return None if rows is None else rows
+
+
 @app.route("/")
 @check_session
 def home():
@@ -150,7 +156,11 @@ def home():
         # Now fetch all the images from the DB and pass them to the view
         dbimages = get_db_images(db, user_id, 0, 0)
 
-    return render_template("index.html", user_id=user_id, real_name=real_name, images=dbimages, files=len(dbimages) if dbimages is not None else 0)
+        # Get the tags for this user so we can set up autocompletion
+        tags = get_db_tags(db, user_id)
+        tagstring = ",".join(["'" + tag[0] + "'" for tag in tags])
+
+    return render_template("index.html", user_id=user_id, real_name=real_name, images=dbimages, files=len(dbimages) if dbimages is not None else 0, tagstring=tagstring)
 
 
 @app.route("/update-tags", methods=['POST'])
