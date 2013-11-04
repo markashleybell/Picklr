@@ -86,7 +86,7 @@ def get_db_images(db, user_id, pagesize, page):
               sharekey, 
               date_added, 
               tags,
-              (SELECT COUNT(id) FROM images where user_id = 768836) as total_records
+              (SELECT COUNT(id) FROM images where user_id = ?) as total_records
           FROM
               images
           WHERE
@@ -106,7 +106,7 @@ def get_db_images(db, user_id, pagesize, page):
               ? -- Page Size
           """
     start_at = (page - 1) * pagesize
-    rows = db.execute(sql, [user_id, start_at, pagesize]).fetchall()
+    rows = db.execute(sql, [user_id, user_id, start_at, pagesize]).fetchall()
     return None if rows is None else rows
 
 
