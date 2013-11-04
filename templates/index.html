@@ -12,6 +12,7 @@
     <script type="text/javascript">
         $(function() {
             var idInput = $('#imgid');
+            var descriptionInput = $('#description');
             var tagInput = $('#tags');
             var form = $('#tag-editor');
 
@@ -29,6 +30,7 @@
                 e.stopPropagation();
                 var link = $(this);
                 idInput.val(link.data('imgid'));
+                descriptionInput.val(link.data('description'))
                 tagInput.tagit('removeAll');
                 $.each(link.data('tags').split('|'), function(i, item) {
                     tagInput.tagit('createTag', item);
@@ -40,14 +42,16 @@
     </script>
     <form id="tag-editor" action="{{ url_for('update_tags') }}" method="post">
         <input type="hidden" id="imgid" name="imgid" value="0" />
-        <input id="tags" name="tags" type="text" value="tag1|tag2" />
+        <input type="hidden" id="page" name="page" value="{{ page }}" />
+        <input id="tags" name="tags" type="text" value="" />
+        <input id="description" name="description" type="text" value="" />
         <input type="submit" value="Save" />
     </form>
     <p><a href="{{ url_for('dropbox_unlink') }}" method="post">Unlink</a></p>
     <div id="thumbs">
     {% for image in images %}
         <div>
-            <a class="edit-tags" href="/image/{{ image[0] }}" data-imgid="{{ image[0] }}" data-tags="{{ image[4] or "" }}">E</a>
+            <a class="edit-tags" href="/image/{{ image[0] }}" data-imgid="{{ image[0] }}" data-tags="{{ image[5] or "" }}" data-description="{{ image[4] or "" }}">E</a>
             <a class="view-large" href="/image/{{ image[0] }}"><img src="/static/img/thumbs/{{ image[0] }}.jpg" alt="Added {{ image[3] }}" /></a>
         </div>
     {% endfor %}

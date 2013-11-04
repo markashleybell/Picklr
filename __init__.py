@@ -85,6 +85,7 @@ def get_db_images(db, user_id, pagesize, page):
               path, 
               sharekey, 
               date_added, 
+              description,
               tags,
               (SELECT COUNT(id) FROM images where user_id = ?) as total_records
           FROM
@@ -178,7 +179,7 @@ def home():
         pagesize = 5
         # Now fetch the images from the DB and pass them to the view
         dbimages = get_db_images(db, user_id, pagesize, page)
-        total_files = dbimages[0][5] if dbimages is not None else 0
+        total_files = dbimages[0][6] if dbimages is not None else 0
         total_pages = total_files / pagesize
         if total_files % pagesize is not 0:
             total_pages += 1
@@ -207,8 +208,10 @@ def update_tags():
     new_tag_sql = "SELECT tag, id FROM tags WHERE user_id = ?"
     # Get a dictionary of all this user's tags, with tag as key and id as value
     dbtags = { k : v for k, v in db.execute(new_tag_sql, [user_id]).fetchall() }
-    # Get a list of the posted tags
+    # Get a list of the posted tags and the image description
     tags = [tag.strip() for tag in request.form["tags"].split("|")]
+    description = request.form["description"]
+    page = request.form["page"]
     # Delete all the tag joins for this image
     db.execute("DELETE FROM tags_images WHERE image_id = ?", [image_id])
     # Loop through all the posted tags
@@ -224,10 +227,9 @@ def update_tags():
         db.execute("INSERT INTO tags_images (tag_id, image_id) VALUES (?, ?)", [dbtags[tag], image_id])
         db.commit();
     # Update the flattened tags field of the image record, for convenience
-    db.execute("UPDATE images SET tags = ? WHERE id = ?", ["|".join(tags), image_id])
+    db.execute("UPDATE images SET description = ?, tags = ? WHERE id = ?", [description, "|".join(tags), image_id])
     db.commit();
-    # return jsonify({"success": 1})
-    return redirect(url_for("home"))
+    return redirect(url_for("home", page=page))
 
 
 @app.route("/import")
