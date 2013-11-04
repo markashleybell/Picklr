@@ -61,12 +61,6 @@ def get_db():
     return top.sqlite_db
 
 
-def get_access_token(db, user_id):
-    """Get the OAuth access token for the specified user"""
-    row = db.execute("SELECT access_token FROM users WHERE id = ?", [user_id]).fetchone()
-    return None if row is None else row[0]
-
-
 def get_auth_flow():
     """Shortcut function which returns Dropbox auth flow helper"""
     redirect_uri = url_for("dropbox_auth_finish", _external=True)
@@ -75,6 +69,12 @@ def get_auth_flow():
                              redirect_uri,
                              session, 
                              "dropbox-auth-csrf-token")
+
+
+def get_db_access_token(db, user_id):
+    """Get the OAuth access token for the specified user"""
+    row = db.execute("SELECT access_token FROM users WHERE id = ?", [user_id]).fetchone()
+    return None if row is None else row[0]
 
 
 def get_db_images(db, user_id, fromid, pagesize):
@@ -98,7 +98,7 @@ def get_db_tags(db, user_id):
 def home():
     db = get_db()
     user_id = session.get("user_id", 0)
-    access_token = get_access_token(db, user_id)
+    access_token = get_db_access_token(db, user_id)
     real_name = None
     files = None
 
