@@ -77,13 +77,36 @@ def get_db_access_token(db, user_id):
     return None if row is None else row[0]
 
 
-def get_db_images(db, user_id, fromid, pagesize):
-    """Get a user's image records from the db, with optional paging"""
-    # if fromid > 0:
-    #     sql += "AND id > ? "
-    # if pagesize > 0:
-    #     sql += "LIMIT " + pagesize
-    rows = db.execute("SELECT id, path, sharekey, date_added, tags FROM images WHERE user_id = ?", [user_id]).fetchall()
+def get_db_images(db, user_id, pagesize, page):
+    """Get a user's image records from the db, with paging"""
+    sql = """
+          SELECT 
+              id, 
+              path, 
+              sharekey, 
+              date_added, 
+              tags,
+              (SELECT COUNT(id) FROM images where user_id = 768836) as total_records
+          FROM
+              images
+          WHERE
+              user_id = ?
+          AND
+              id NOT IN (
+                  SELECT
+                      id FROM images
+                  ORDER BY
+                      date_added DESC
+                  LIMIT
+                      ? -- Start at
+              )
+          ORDER BY
+              date_added DESC
+          LIMIT
+              ? -- Page Size
+          """
+    start_at = (page - 1) * pagesize
+    rows = db.execute(sql, [user_id, start_at, pagesize]).fetchall()
     return None if rows is None else rows
 
 
@@ -99,9 +122,6 @@ def home():
     db = get_db()
     user_id = session.get("user_id", 0)
     access_token = get_db_access_token(db, user_id)
-    real_name = None
-    files = None
-
     if access_token is not None:
         client = DropboxClient(access_token)
         account_info = client.account_info()
@@ -153,14 +173,29 @@ def home():
         db.execute("UPDATE users SET delta_cursor = ? WHERE id = ?", [delta["cursor"], user_id])
         db.commit()
 
-        # Now fetch all the images from the DB and pass them to the view
-        dbimages = get_db_images(db, user_id, 0, 0)
+        # Show page 1 if no page query string is supplied
+        page = int(request.args.get('page', 1))
+        pagesize = 5
+        # Now fetch the images from the DB and pass them to the view
+        dbimages = get_db_images(db, user_id, pagesize, page)
+        total_files = dbimages[0][5] if dbimages is not None else 0
+        total_pages = total_files / pagesize
+        if total_files % pagesize is not 0:
+            total_pages += 1
 
         # Get the tags for this user so we can set up autocompletion
         tags = get_db_tags(db, user_id)
         tagstring = ",".join(["'" + tag[0] + "'" for tag in tags])
 
-    return render_template("index.html", user_id=user_id, real_name=real_name, images=dbimages, files=len(dbimages) if dbimages is not None else 0, tagstring=tagstring)
+        return render_template("index.html", user_id=user_id, 
+                                             real_name=real_name, 
+                                             images=dbimages, 
+                                             page=page, 
+                                             total_pages=total_pages, 
+                                             total_files=total_files, 
+                                             tagstring=tagstring)
+    else:
+        return redirect(get_auth_flow().start())        
 
 
 @app.route("/update-tags", methods=['POST'])

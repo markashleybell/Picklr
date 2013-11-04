@@ -1,6 +1,6 @@
 {% extends "layout.html" %}
 {% block body %}
-    <p>Welcome {{ real_name }}! Files: {{ files }}, UID: {{ user_id }}</p>
+    <p>Welcome {{ real_name }}! Page: {{ page }}, Pages: {{ total_pages }}, Files: {{ total_files }}, UID: {{ user_id }}</p>
     <script type="text/javascript">
         $(function() {
             var idInput = $('#imgid');
@@ -40,7 +40,7 @@
     {% for image in images %}
         <div>
             <a class="edit-tags" href="/image/{{ image[0] }}" data-imgid="{{ image[0] }}" data-tags="{{ image[4] or "" }}">E</a>
-            <a class="view-large" href="/image/{{ image[0] }}"><img src="/static/img/thumbs/{{ image[0] }}.jpg" alt="Added {{ image[3] }}" /></a>
+            <a class="view-large" href="/image/{{ image[0] }}"><img src="/static/img/thumbs/{{ image[0] }}.jpg" alt="Added {{ image[3] }}" />{{ image[3] }}</a>
         </div>
     {% endfor %}
     </div>
