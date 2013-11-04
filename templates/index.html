@@ -1,6 +1,6 @@
 {% extends "layout.html" %}
 {% block body %}
-    <p>Welcome {{ real_name }}! Page: {{ page }}, Pages: {{ total_pages }}, Files: {{ total_files }}, UID: {{ user_id }}</p>
+    <p>Page: {{ page }}, Pages: {{ total_pages }}, Files: {{ total_files }}, UID: {{ user_id }}</p>
 
     <p>
         {% for n in range(1, total_pages + 1) %}

@@ -124,9 +124,38 @@ def home():
     user_id = session.get("user_id", 0)
     access_token = get_db_access_token(db, user_id)
     if access_token is not None:
+        # Show page 1 if no page query string is supplied
+        page = int(request.args.get('page', 1))
+        pagesize = 5
+        # Now fetch the images from the DB and pass them to the view
+        dbimages = get_db_images(db, user_id, pagesize, page)
+        total_files = dbimages[0][6] if dbimages is not None else 0
+        total_pages = total_files / pagesize
+        if total_files % pagesize is not 0:
+            total_pages += 1
+
+        # Get the tags for this user so we can set up autocompletion
+        tags = get_db_tags(db, user_id)
+        tagstring = ",".join(["'" + tag[0] + "'" for tag in tags])
+
+        return render_template("index.html", user_id=user_id, 
+                                             images=dbimages, 
+                                             page=page, 
+                                             total_pages=total_pages, 
+                                             total_files=total_files, 
+                                             tagstring=tagstring)
+    else:
+        return redirect(get_auth_flow().start())    
+
+
+@app.route("/update")
+@check_session
+def update():
+    db = get_db()
+    user_id = session.get("user_id", 0)
+    access_token = get_db_access_token(db, user_id)
+    if access_token is not None:
         client = DropboxClient(access_token)
-        account_info = client.account_info()
-        real_name = account_info["display_name"]
         # Get the previous delta cursor hash (if present) so we only pull
         # down changes which occurred since the last time we updated
         old_cursor = db.execute("SELECT delta_cursor FROM users WHERE id = ?", [user_id]).fetchone()
@@ -134,7 +163,8 @@ def home():
         # The first time we retrieve the delta it will consist of a single entry for 
         # the /Images sub folder of our app folder, so ignore this if present
         files = [item for item in delta["entries"] if item[0] != "/images"]
-
+        added_files = 0
+        deleted_files = 0
         for f in files:
             # The delta API call returns a list of two-element lists
             # Element 0 is the lowercased file path, element 1 is the file metadata
@@ -146,6 +176,7 @@ def home():
                 db.execute("DELETE FROM images WHERE path = ? and user_id = ?", [filename, user_id])
                 db.commit()
                 # TODO: Delete the local thumbnail for the image which was removed
+                deleted_files += 1
             else:
                 # Get the publically accessible share URL for this file
                 share = client.share(fpath, short_url=False)
@@ -167,36 +198,21 @@ def home():
                 # using the id of the image record we've just inserted
                 thumbfile = open(os.path.join(currentpath, "static", "img", "thumbs", imageid + ".jpg"), "wb")
                 thumb = client.thumbnail(fpath, size="m", format="JPEG")
-                thumbfile.write(thumb.read())                
+                thumbfile.write(thumb.read())         
+                added_files += 1       
 
         # Update the cursor hash stored against the user so we can retrieve
         # a delta of just the changes from this point onward next time we update
         db.execute("UPDATE users SET delta_cursor = ? WHERE id = ?", [delta["cursor"], user_id])
         db.commit()
 
-        # Show page 1 if no page query string is supplied
-        page = int(request.args.get('page', 1))
-        pagesize = 5
-        # Now fetch the images from the DB and pass them to the view
-        dbimages = get_db_images(db, user_id, pagesize, page)
-        total_files = dbimages[0][6] if dbimages is not None else 0
-        total_pages = total_files / pagesize
-        if total_files % pagesize is not 0:
-            total_pages += 1
-
         # Get the tags for this user so we can set up autocompletion
         tags = get_db_tags(db, user_id)
         tagstring = ",".join(["'" + tag[0] + "'" for tag in tags])
 
-        return render_template("index.html", user_id=user_id, 
-                                             real_name=real_name, 
-                                             images=dbimages, 
-                                             page=page, 
-                                             total_pages=total_pages, 
-                                             total_files=total_files, 
-                                             tagstring=tagstring)
+        return jsonify({ "added": added_files, "deleted": deleted_files })
     else:
-        return redirect(get_auth_flow().start())        
+        abort(403) 
 
 
 @app.route("/update-tags", methods=['POST'])
