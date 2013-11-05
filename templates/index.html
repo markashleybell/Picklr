@@ -1,6 +1,6 @@
 {% extends "layout.html" %}
 {% block body %}
-    <p id="status">Page: {{ page }}, Pages: {{ total_pages }}, Files: {{ total_files }}, UID: {{ user_id }}</p>
+    <p id="status">Page: {{ page }}, Pages: {{ total_pages }}, Files: {{ total_files }}, UID: {{ user_id }} <a href="{{ url_for('dropbox_unlink') }}" method="post">Unlink</a></p>
 
     <p>
         {% for n in range(1, total_pages + 1) %}
@@ -61,7 +61,6 @@
         <input id="description" name="description" type="text" value="" />
         <input type="submit" value="Save" />
     </form>
-    <p><a href="{{ url_for('dropbox_unlink') }}" method="post">Unlink</a></p>
     <div id="thumbs">
     {% for image in images %}
         <div>
