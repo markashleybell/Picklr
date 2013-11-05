@@ -1,6 +1,6 @@
 {% extends "layout.html" %}
 {% block body %}
-    <p>Page: {{ page }}, Pages: {{ total_pages }}, Files: {{ total_files }}, UID: {{ user_id }}</p>
+    <p id="status">Page: {{ page }}, Pages: {{ total_pages }}, Files: {{ total_files }}, UID: {{ user_id }}</p>
 
     <p>
         {% for n in range(1, total_pages + 1) %}
@@ -15,6 +15,7 @@
             var descriptionInput = $('#description');
             var tagInput = $('#tags');
             var form = $('#tag-editor');
+            var statusBar = $('#status');
 
             tagInput.tagit({
                 availableTags: [{{ tagstring|safe }}],
@@ -37,6 +38,19 @@
                 });
                 form.show();
                 form.find('.tagit input[type=text]:first').focus();
+            });
+
+            $.ajax({
+                url: '/sync',
+                cache: false,
+                dataType: 'json'
+            }).done(function(data) {
+                // TODO: Will this never be called without refreshing the page?
+                // status.remove('span.info, span.error');
+                if(data.added != 0 || data.deleted != 0)
+                    statusBar.append(' &nbsp; <span class="info">UPDATE: ' + data.added + ' files added, ' + data.deleted + ' deleted. <a href="/">Click here to reload</a>.</span>');
+            }).fail(function(request, status, error) {
+                statusBar.append(' &nbsp; <span class="error">ERROR: ' + error + '</span>');
             });
         });
     </script>

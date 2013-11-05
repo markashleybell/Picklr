@@ -107,14 +107,12 @@ def get_db_images(db, user_id, pagesize, page):
               ? -- Page Size
           """
     start_at = (page - 1) * pagesize
-    rows = db.execute(sql, [user_id, user_id, start_at, pagesize]).fetchall()
-    return None if rows is None else rows
+    return db.execute(sql, [user_id, user_id, start_at, pagesize]).fetchall()
 
 
 def get_db_tags(db, user_id):
     """Get a user's tags from the db"""
-    rows = db.execute("SELECT tag FROM tags WHERE user_id = ?", [user_id]).fetchall()
-    return None if rows is None else rows
+    return db.execute("SELECT tag FROM tags WHERE user_id = ?", [user_id]).fetchall()
 
 
 @app.route("/")
@@ -126,10 +124,11 @@ def home():
     if access_token is not None:
         # Show page 1 if no page query string is supplied
         page = int(request.args.get('page', 1))
-        pagesize = 5
+        pagesize = 25
         # Now fetch the images from the DB and pass them to the view
         dbimages = get_db_images(db, user_id, pagesize, page)
-        total_files = dbimages[0][6] if dbimages is not None else 0
+
+        total_files = dbimages[0][6] if len(dbimages) is not 0 else 0
         total_pages = total_files / pagesize
         if total_files % pagesize is not 0:
             total_pages += 1
@@ -148,9 +147,9 @@ def home():
         return redirect(get_auth_flow().start())    
 
 
-@app.route("/update")
+@app.route("/sync")
 @check_session
-def update():
+def sync():
     db = get_db()
     user_id = session.get("user_id", 0)
     access_token = get_db_access_token(db, user_id)
