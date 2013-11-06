@@ -1,6 +1,6 @@
 {% extends "layout.html" %}
 {% block body %}
-    <p id="status">Page: {{ page }}, Pages: {{ total_pages }}, Files: {{ total_files }}, UID: {{ user_id }} <a href="{{ url_for('dropbox_unlink') }}" method="post">Unlink</a></p>
+    <p id="status">Page: {{ page }}, Pages: {{ total_pages }}, Files: {{ total_files }}, UID: {{ user_id }} <a href="{{ url_for('dropbox_unlink') }}" method="post">Unlink from Dropbox and Log Out</a></p>
 
     <p>
         {% for n in range(1, total_pages + 1) %}
