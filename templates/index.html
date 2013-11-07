@@ -61,6 +61,8 @@
             },
             sync: function() {
 
+                Picklr.ui.syncNow.html('Syncing...');
+                
                 $.ajax({
                     url: '/sync',
                     cache: false,
@@ -144,7 +146,6 @@
                     e.preventDefault();
                     e.stopPropagation();
                     Picklr.sync();
-                    Picklr.ui.syncNow.html('Syncing...');
                 });
 
                 Picklr.ui.status.on('click', '#reload', function(e) {
