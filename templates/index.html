@@ -1,6 +1,9 @@
 {% extends "layout.html" %}
 {% block body %}
-    <p id="status">Page: {{ page }}, Pages: {{ total_pages }}, Files: {{ total_files }}, UID: {{ user_id }} <a href="{{ url_for('dropbox_unlink') }}" method="post">Unlink from Dropbox and Log Out</a></p>
+
+    <p id="auth">User {{ user_id }} - <a href="{{ url_for('dropbox_unlink') }}" method="post">Unlink from Dropbox and Log Out</a></p>
+
+    <p id="status">Page: {{ page }}, Pages: {{ total_pages }}, Files: {{ total_files }}</p>
 
     <p>
         {% for n in range(1, total_pages + 1) %}
@@ -10,50 +13,102 @@
     </p>
 
     <script type="text/javascript">
-        $(function() {
-            var idInput = $('#imgid');
-            var descriptionInput = $('#description');
-            var tagInput = $('#tags');
-            var form = $('#tag-editor');
-            var statusBar = $('#status');
 
-            tagInput.tagit({
-                availableTags: [{{ tagstring|safe }}],
-                singleFieldDelimiter: '|',
-                autocomplete: {
-                    delay: 0, 
-                    minLength: 2
-                }
-            });
+        var Picklr = {
+            globals: {
+                page: {{ page }}
+            },
+            ui: {
+                idInput: null,
+                descriptionInput: null,
+                tagInput: null,
+                form: null,
+                statusBar: null,
+                thumbs: null,
+            },
+            template: {
+                thumb: null
+            },
+            loadFiles: function(page) {
 
-            $('#thumbs').on('click', 'a.edit-tags', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                var link = $(this);
-                idInput.val(link.data('imgid'));
-                descriptionInput.val(link.data('description'))
-                tagInput.tagit('removeAll');
-                $.each(link.data('tags').split('|'), function(i, item) {
-                    tagInput.tagit('createTag', item);
+                $.ajax({
+                    url: '/images?page=' + page,
+                    cache: false,
+                    dataType: 'json'
+                }).done(function(data) {
+                    var output = [];
+                    $.each(data.images, function(i, item) {
+                        output.push(Picklr.template.thumb(item));
+                    });
+                    Picklr.ui.thumbs.html(output.join(''));
+                }).fail(function(request, status, error) {
+                    Picklr.ui.statusBar.append(' &nbsp; <span class="error">ERROR: ' + error + '</span>');
                 });
-                form.show();
-                form.find('.tagit input[type=text]:first').focus();
-            });
 
-            $.ajax({
-                url: '/sync',
-                cache: false,
-                dataType: 'json'
-            }).done(function(data) {
-                // TODO: Will this never be called without refreshing the page?
-                // status.remove('span.info, span.error');
-                if(data.added != 0 || data.deleted != 0)
-                    statusBar.append(' &nbsp; <span class="info">UPDATE: ' + data.added + ' files added, ' + data.deleted + ' deleted. <a href="/">Click here to reload</a>.</span>');
-            }).fail(function(request, status, error) {
-                statusBar.append(' &nbsp; <span class="error">ERROR: ' + error + '</span>');
-            });
+            },
+            syncFiles: function() {
+
+                $.ajax({
+                    url: '/sync',
+                    cache: false,
+                    dataType: 'json'
+                }).done(function(data) {
+                    // TODO: Will this never be called without refreshing the page?
+                    // status.remove('span.info, span.error');
+                    if(data.added != 0 || data.deleted != 0)
+                        statusBar.append(' &nbsp; <span class="info">UPDATE: ' + data.added + ' files added, ' + data.deleted + ' deleted. <a href="/">Click here to reload</a>.</span>');
+                }).fail(function(request, status, error) {
+                    Picklr.ui.statusBar.append(' &nbsp; <span class="error">ERROR: ' + error + '</span>');
+                });
+
+            },
+            init: function() {
+
+                Picklr.ui.idInput = $('#imgid');
+                Picklr.ui.descriptionInput = $('#description');
+                Picklr.ui.tagInput = $('#tags');
+                Picklr.ui.form = $('#tag-editor');
+                Picklr.ui.statusBar = $('#status');
+                Picklr.ui.thumbs = $('#thumbs');
+
+                Picklr.template.thumb = Handlebars.compile($('#thumb-template').html());
+
+                Picklr.ui.tagInput.tagit({
+                    availableTags: [{{ tagstring|safe }}],
+                    singleFieldDelimiter: '|',
+                    autocomplete: {
+                        delay: 0, 
+                        minLength: 2
+                    }
+                });
+
+                Picklr.ui.thumbs.on('click', 'a.edit-tags', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    var link = $(this);
+                    Picklr.ui.idInput.val(link.data('imgid'));
+                    Picklr.ui.descriptionInput.val(link.data('description'))
+                    Picklr.ui.tagInput.tagit('removeAll');
+                    $.each(link.data('tags').split('|'), function(i, item) {
+                        Picklr.ui.tagInput.tagit('createTag', item);
+                    });
+                    form.show();
+                    form.find('.tagit input[type=text]:first').focus();
+                });
+
+                Picklr.loadFiles(Picklr.globals.page);
+
+            }
+        };
+
+        $(function() {
+            
+            Picklr.init();
+
         });
+
     </script>
+
     <form id="tag-editor" action="{{ url_for('update_tags') }}" method="post">
         <input type="hidden" id="imgid" name="imgid" value="0" />
         <input type="hidden" id="page" name="page" value="{{ page }}" />
@@ -61,12 +116,16 @@
         <input id="description" name="description" type="text" value="" />
         <input type="submit" value="Save" />
     </form>
-    <div id="thumbs">
-    {% for image in images %}
+
+    <div id="thumbs" />
+
+    {% raw %}
+    <script id="thumb-template" type="text/x-handlebars-template">
         <div>
-            <a class="edit-tags" href="/image/{{ image[0] }}" data-imgid="{{ image[0] }}" data-tags="{{ image[5] or "" }}" data-description="{{ image[4] or "" }}">E</a>
-            <a class="view-large" href="/image/{{ image[0] }}"><img src="/static/img/thumbs/{{ image[0] }}.jpg" alt="Added {{ image[3] }}" /></a>
+            <a class="edit-tags" href="/image/{{ id }}" data-imgid="{{ id }}" data-tags="{{ tags }}" data-description="{{ description }}">E</a>
+            <a class="view-large" href="/image/{{ id }}"><img src="/static/img/thumbs/{{ id }}.jpg" alt="Added {{ date_added }}" /></a>
         </div>
-    {% endfor %}
-    </div>
+    </script>
+    {% endraw %}
+
 {% endblock %}

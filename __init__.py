@@ -129,7 +129,13 @@ def get_db_images(db, user_id, pagesize, page):
               ? -- Page Size
           """
     start_at = (page - 1) * pagesize
-    return db.execute(sql, [user_id, user_id, start_at, pagesize]).fetchall()
+    cursor = db.cursor()
+    rows = cursor.execute(sql, [user_id, user_id, start_at, pagesize]).fetchall()
+    cols = [d[0] for d in cursor.description]
+    dict_rows = []
+    for row in rows:
+        dict_rows.append(dict(zip(cols, row)))
+    return dict_rows
 
 
 def get_db_tags(db, user_id):
@@ -144,12 +150,12 @@ def home():
     access_token = get_db_access_token(db, current_user.id)
     if access_token is not None:
         # Show page 1 if no page query string is supplied
-        page = int(request.args.get('page', 1))
+        page = int(request.args.get("page", 1))
         pagesize = 25
         # Now fetch the images from the DB and pass them to the view
         dbimages = get_db_images(db, current_user.id, pagesize, page)
 
-        total_files = dbimages[0][6] if len(dbimages) is not 0 else 0
+        total_files = dbimages[0]["total_records"] if len(dbimages) is not 0 else 0
         total_pages = total_files / pagesize
         if total_files % pagesize is not 0:
             total_pages += 1
@@ -159,13 +165,42 @@ def home():
         tagstring = ",".join(["'" + tag[0] + "'" for tag in tags])
 
         return render_template("index.html", user_id=current_user.id, 
-                                             images=dbimages, 
                                              page=page, 
                                              total_pages=total_pages, 
                                              total_files=total_files, 
                                              tagstring=tagstring)
     else:
         return redirect(get_auth_flow().start())    
+
+@app.route("/images")
+def images():
+    if not current_user.is_authenticated():
+        abort(403)
+    db = get_db()
+    access_token = get_db_access_token(db, current_user.id)
+    if access_token is not None:
+        # Show page 1 if no page query string is supplied
+        page = int(request.args.get("page", 1))
+        pagesize = 25
+        # Now fetch the images from the DB and pass them to the view
+        dbimages = get_db_images(db, current_user.id, pagesize, page)
+
+        total_files = dbimages[0]["total_records"] if len(dbimages) is not 0 else 0
+        total_pages = total_files / pagesize
+        if total_files % pagesize is not 0:
+            total_pages += 1
+
+        # Get the tags for this user so we can set up autocompletion
+        tags = get_db_tags(db, current_user.id)
+        tagstring = ",".join(["'" + tag[0] + "'" for tag in tags])
+
+        return jsonify({ "images": dbimages, 
+                         "page": page, 
+                         "total_pages": total_pages, 
+                         "total_files": total_files, 
+                         "tagstring": tagstring })
+    else:
+        abort(403) 
 
 
 @app.route("/sync")
