@@ -5,9 +5,9 @@
 
     <p id="status">Page: {{ page }}, Pages: {{ total_pages }}, Files: {{ total_files }}</p>
 
-    <p>
+    <p id="paging">
         {% for n in range(1, total_pages + 1) %}
-        <a href="/?page={{ n }}">{{ n }}</a>
+        <a href="/?page={{ n }}" data-page="{{ n }}">{{ n }}</a>
         {% if n < total_pages %} | {% endif %}
         {% endfor %}
     </p>
@@ -16,7 +16,8 @@
 
         var Picklr = {
             globals: {
-                page: {{ page }}
+                page: {{ page }},
+                tags: [{{ tagstring|safe }}]
             },
             ui: {
                 idInput: null,
@@ -25,14 +26,15 @@
                 form: null,
                 statusBar: null,
                 thumbs: null,
+                paging: null
             },
             template: {
                 thumb: null
             },
-            loadFiles: function(page) {
+            load: function(page) {
 
                 $.ajax({
-                    url: '/images?page=' + page,
+                    url: '/load?page=' + page,
                     cache: false,
                     dataType: 'json'
                 }).done(function(data) {
@@ -46,7 +48,7 @@
                 });
 
             },
-            syncFiles: function() {
+            sync: function() {
 
                 $.ajax({
                     url: '/sync',
@@ -62,6 +64,26 @@
                 });
 
             },
+            save: function(page) {
+
+                $.ajax({
+                    url: '/save',
+                    data: Picklr.ui.form.serialize(),
+                    cache: false,
+                    type: 'POST',
+                    dataType: 'json',
+                }).done(function(data) {
+                    // Add any new tags which were returned to the global tag array
+                    Picklr.globals.tags.concat(data.newtags);
+                    // Update the data atributes of the edited item
+                    var item = $('#i-' + Picklr.ui.idInput.val()).find('a.edit-tags').first();
+                    item.data('tags', Picklr.ui.tagInput.val());
+                    item.data('description', Picklr.ui.descriptionInput.val());
+                }).fail(function(request, status, error) {
+                    Picklr.ui.statusBar.append(' &nbsp; <span class="error">ERROR: ' + error + '</span>');
+                });
+
+            },
             init: function() {
 
                 Picklr.ui.idInput = $('#imgid');
@@ -70,15 +92,16 @@
                 Picklr.ui.form = $('#tag-editor');
                 Picklr.ui.statusBar = $('#status');
                 Picklr.ui.thumbs = $('#thumbs');
+                Picklr.ui.paging = $('#paging');
 
                 Picklr.template.thumb = Handlebars.compile($('#thumb-template').html());
 
                 Picklr.ui.tagInput.tagit({
-                    availableTags: [{{ tagstring|safe }}],
                     singleFieldDelimiter: '|',
                     autocomplete: {
                         delay: 0, 
-                        minLength: 2
+                        minLength: 2,
+                        source: Picklr.globals.tags
                     }
                 });
 
@@ -92,11 +115,24 @@
                     $.each(link.data('tags').split('|'), function(i, item) {
                         Picklr.ui.tagInput.tagit('createTag', item);
                     });
-                    form.show();
-                    form.find('.tagit input[type=text]:first').focus();
+                    Picklr.ui.form.show();
+                    Picklr.ui.form.find('.tagit input[type=text]:first').focus();
                 });
 
-                Picklr.loadFiles(Picklr.globals.page);
+                Picklr.ui.paging.on('click', 'a', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    Picklr.globals.page = $(this).data('page');
+                    Picklr.load(Picklr.globals.page);
+                });
+
+                Picklr.ui.form.on('submit', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    Picklr.save();
+                });
+
+                Picklr.load(Picklr.globals.page);
 
             }
         };
@@ -109,7 +145,7 @@
 
     </script>
 
-    <form id="tag-editor" action="{{ url_for('update_tags') }}" method="post">
+    <form id="tag-editor" action="{{ url_for('save') }}" method="post">
         <input type="hidden" id="imgid" name="imgid" value="0" />
         <input type="hidden" id="page" name="page" value="{{ page }}" />
         <input id="tags" name="tags" type="text" value="" />
@@ -121,7 +157,7 @@
 
     {% raw %}
     <script id="thumb-template" type="text/x-handlebars-template">
-        <div>
+        <div id="i-{{ id }}">
             <a class="edit-tags" href="/image/{{ id }}" data-imgid="{{ id }}" data-tags="{{ tags }}" data-description="{{ description }}">E</a>
             <a class="view-large" href="/image/{{ id }}"><img src="/static/img/thumbs/{{ id }}.jpg" alt="Added {{ date_added }}" /></a>
         </div>

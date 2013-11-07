@@ -172,8 +172,8 @@ def home():
     else:
         return redirect(get_auth_flow().start())    
 
-@app.route("/images")
-def images():
+@app.route("/load")
+def load():
     if not current_user.is_authenticated():
         abort(403)
     db = get_db()
@@ -270,21 +270,23 @@ def sync():
         abort(403) 
 
 
-@app.route("/update-tags", methods=['POST'])
-def update_tags():
+@app.route("/save", methods=['POST'])
+def save():
     if not current_user.is_authenticated():
         abort(403)
     db = get_db()
     image_id = request.form["imgid"]
-    new_tag_sql = "SELECT tag, id FROM tags WHERE user_id = ?"
+    tag_sql = "SELECT tag, id FROM tags WHERE user_id = ?"
     # Get a dictionary of all this user's tags, with tag as key and id as value
-    dbtags = { k : v for k, v in db.execute(new_tag_sql, [current_user.id]).fetchall() }
+    dbtags = { k : v for k, v in db.execute(tag_sql, [current_user.id]).fetchall() }
     # Get a list of the posted tags and the image description
     tags = [tag.strip() for tag in request.form["tags"].split("|")]
     description = request.form["description"]
     page = request.form["page"]
     # Delete all the tag joins for this image
     db.execute("DELETE FROM tags_images WHERE image_id = ?", [image_id])
+    # Only return newly added tags
+    newtags = []
     # Loop through all the posted tags
     for tag in tags:
         # If a tag isn't already in the db
@@ -294,13 +296,15 @@ def update_tags():
             db.commit();
             # Add the new tag and id to the dbtags dict so we don't have to query for it again
             dbtags[tag] = cursor.lastrowid;
+            newtags.append(tag)
         # Insert a join record for this tag/image
         db.execute("INSERT INTO tags_images (tag_id, image_id) VALUES (?, ?)", [dbtags[tag], image_id])
         db.commit();
     # Update the flattened tags field of the image record, for convenience
     db.execute("UPDATE images SET description = ?, tags = ? WHERE id = ?", [description, "|".join(tags), image_id])
     db.commit();
-    return redirect(url_for("home", page=page))
+    # return redirect(url_for("home", page=page))
+    return jsonify({ "newtags": newtags })
 
 
 @app.route("/image/<int:id>")
