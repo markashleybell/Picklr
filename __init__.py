@@ -28,6 +28,9 @@ currentpath = os.path.dirname(os.path.abspath(__file__))
 parentpath = os.path.abspath(os.path.join(currentpath, os.pardir))
 dbpath = os.path.join(parentpath, "db")
 
+# How many thumbs to show per page
+pagesize = 25
+
 # Ensure db directory exists
 try:
     os.makedirs(dbpath)
@@ -151,24 +154,9 @@ def home():
     if access_token is not None:
         # Show page 1 if no page query string is supplied
         page = int(request.args.get("page", 1))
-        pagesize = 25
-        # Now fetch the images from the DB and pass them to the view
-        dbimages = get_db_images(db, current_user.id, pagesize, page)
-
-        total_files = dbimages[0]["total_records"] if len(dbimages) is not 0 else 0
-        total_pages = total_files / pagesize
-        if total_files % pagesize is not 0:
-            total_pages += 1
-
-        # Get the tags for this user so we can set up autocompletion
-        tags = get_db_tags(db, current_user.id)
-        tagstring = ",".join(["'" + tag[0] + "'" for tag in tags])
 
         return render_template("index.html", user_id=current_user.id, 
-                                             page=page, 
-                                             total_pages=total_pages, 
-                                             total_files=total_files, 
-                                             tagstring=tagstring)
+                                             page=page)
     else:
         return redirect(get_auth_flow().start())    
 
@@ -181,7 +169,6 @@ def load():
     if access_token is not None:
         # Show page 1 if no page query string is supplied
         page = int(request.args.get("page", 1))
-        pagesize = 25
         # Now fetch the images from the DB and pass them to the view
         dbimages = get_db_images(db, current_user.id, pagesize, page)
 
@@ -261,11 +248,20 @@ def sync():
         db.execute("UPDATE users SET delta_cursor = ? WHERE id = ?", [delta["cursor"], current_user.id])
         db.commit()
 
-        # Get the tags for this user so we can set up autocompletion
-        tags = get_db_tags(db, current_user.id)
-        tagstring = ",".join(["'" + tag[0] + "'" for tag in tags])
+        
+        # Now fetch the images from the DB and pass them to the view
+        # TODO: Need method to just get record count for user rather than retrieving all data
+        dbimages = get_db_images(db, current_user.id, pagesize, 1)
 
-        return jsonify({ "added": added_files, "deleted": deleted_files })
+        total_files = dbimages[0]["total_records"] if len(dbimages) is not 0 else 0
+        total_pages = total_files / pagesize
+        if total_files % pagesize is not 0:
+            total_pages += 1
+
+        return jsonify({ "added": added_files, 
+                         "deleted": deleted_files, 
+                         "total_files": total_files, 
+                         "total_pages": total_pages })
     else:
         abort(403) 
 

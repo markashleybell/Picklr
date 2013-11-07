@@ -3,14 +3,9 @@
 
     <p id="auth">User {{ user_id }} - <a href="{{ url_for('dropbox_unlink') }}" method="post">Unlink from Dropbox and Log Out</a></p>
 
-    <p id="status">Page: {{ page }}, Pages: {{ total_pages }}, Files: {{ total_files }}</p>
+    <p id="status"></p>
 
-    <p id="paging">
-        {% for n in range(1, total_pages + 1) %}
-        <a href="/?page={{ n }}" data-page="{{ n }}">{{ n }}</a>
-        {% if n < total_pages %} | {% endif %}
-        {% endfor %}
-    </p>
+    <p id="paging"></p>
 
     <script type="text/javascript">
 
@@ -24,27 +19,42 @@
                 descriptionInput: null,
                 tagInput: null,
                 form: null,
-                statusBar: null,
+                status: null,
                 thumbs: null,
                 paging: null
             },
             template: {
-                thumb: null
+                thumb: null,
+                status: null,
+                paging: null
             },
-            load: function(page) {
+            load: function(page, callback) {
 
                 $.ajax({
                     url: '/load?page=' + page,
                     cache: false,
                     dataType: 'json'
                 }).done(function(data) {
+                    // Buffer array to efficiently concatenate output HTML
                     var output = [];
+                    // Create the thumbnail display
                     $.each(data.images, function(i, item) {
                         output.push(Picklr.template.thumb(item));
                     });
                     Picklr.ui.thumbs.html(output.join(''));
+                    // Empty the output array
+                    output.length = 0;
+                    // Create the paging nav
+                    for(var i = 1; i <= data.total_pages; i ++) 
+                        output.push(Picklr.template.paging({ "n": i }));
+                    Picklr.ui.paging.html(output.join(''));
+                    // Populate the status bar
+                    Picklr.ui.status.html(Picklr.template.status(data));
+                    // If a callback function has been passed in, call it
+                    if(typeof callback === 'function')
+                        callback();
                 }).fail(function(request, status, error) {
-                    Picklr.ui.statusBar.append(' &nbsp; <span class="error">ERROR: ' + error + '</span>');
+                    Picklr.ui.status.append(' &nbsp; <span class="error">ERROR: ' + error + '</span>');
                 });
 
             },
@@ -55,12 +65,10 @@
                     cache: false,
                     dataType: 'json'
                 }).done(function(data) {
-                    // TODO: Will this never be called without refreshing the page?
-                    // status.remove('span.info, span.error');
                     if(data.added != 0 || data.deleted != 0)
-                        statusBar.append(' &nbsp; <span class="info">UPDATE: ' + data.added + ' files added, ' + data.deleted + ' deleted. <a href="/">Click here to reload</a>.</span>');
+                        Picklr.ui.status.remove('span.info, span.error').append(' &nbsp; <span class="info">UPDATE: ' + data.added + ' files added, ' + data.deleted + ' deleted. <a href="/" id="reload">Click here to reload</a>.</span>');
                 }).fail(function(request, status, error) {
-                    Picklr.ui.statusBar.append(' &nbsp; <span class="error">ERROR: ' + error + '</span>');
+                    Picklr.ui.status.append(' &nbsp; <span class="error">ERROR: ' + error + '</span>');
                 });
 
             },
@@ -80,7 +88,7 @@
                     item.data('tags', Picklr.ui.tagInput.val());
                     item.data('description', Picklr.ui.descriptionInput.val());
                 }).fail(function(request, status, error) {
-                    Picklr.ui.statusBar.append(' &nbsp; <span class="error">ERROR: ' + error + '</span>');
+                    Picklr.ui.status.append(' &nbsp; <span class="error">ERROR: ' + error + '</span>');
                 });
 
             },
@@ -90,11 +98,13 @@
                 Picklr.ui.descriptionInput = $('#description');
                 Picklr.ui.tagInput = $('#tags');
                 Picklr.ui.form = $('#tag-editor');
-                Picklr.ui.statusBar = $('#status');
+                Picklr.ui.status = $('#status');
                 Picklr.ui.thumbs = $('#thumbs');
                 Picklr.ui.paging = $('#paging');
 
                 Picklr.template.thumb = Handlebars.compile($('#thumb-template').html());
+                Picklr.template.status = Handlebars.compile($('#status-template').html());
+                Picklr.template.paging = Handlebars.compile($('#paging-template').html());
 
                 Picklr.ui.tagInput.tagit({
                     singleFieldDelimiter: '|',
@@ -126,13 +136,19 @@
                     Picklr.load(Picklr.globals.page);
                 });
 
+                Picklr.ui.status.on('click', '#reload', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    Picklr.load(Picklr.globals.page);
+                });
+
                 Picklr.ui.form.on('submit', function(e) {
                     e.preventDefault();
                     e.stopPropagation();
                     Picklr.save();
                 });
 
-                Picklr.load(Picklr.globals.page);
+                Picklr.load(Picklr.globals.page, Picklr.sync);
 
             }
         };
@@ -161,6 +177,12 @@
             <a class="edit-tags" href="/image/{{ id }}" data-imgid="{{ id }}" data-tags="{{ tags }}" data-description="{{ description }}">E</a>
             <a class="view-large" href="/image/{{ id }}"><img src="/static/img/thumbs/{{ id }}.jpg" alt="Added {{ date_added }}" /></a>
         </div>
+    </script>
+    <script id="status-template" type="text/x-handlebars-template">
+        <span>Page: {{ page }}, Pages: {{ total_pages }}, Files: {{ total_files }}</span>
+    </script>
+    <script id="paging-template" type="text/x-handlebars-template">
+        <a href="/?page={{ n }}" data-page="{{ n }}">{{ n }}</a>
     </script>
     {% endraw %}
 
