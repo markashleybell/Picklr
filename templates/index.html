@@ -1,7 +1,7 @@
 {% extends "layout.html" %}
 {% block body %}
 
-    <p id="auth">User {{ user_id }} - <a href="{{ url_for('dropbox_unlink') }}" method="post">Unlink from Dropbox and Log Out</a></p>
+    <p id="auth">User {{ user_id }} - <a href="/" id="sync-now">Sync Now</a> - <a href="{{ url_for('dropbox_unlink') }}" method="post">Unlink from Dropbox and Log Out</a></p>
 
     <p id="status"></p>
 
@@ -21,7 +21,8 @@
                 form: null,
                 status: null,
                 thumbs: null,
-                paging: null
+                paging: null,
+                syncNow: null
             },
             template: {
                 thumb: null,
@@ -69,6 +70,8 @@
                         Picklr.ui.status.remove('span.info, span.error').append(' &nbsp; <span class="info">UPDATE: ' + data.added + ' files added, ' + data.deleted + ' deleted. <a href="/" id="reload">Click here to reload</a>.</span>');
                 }).fail(function(request, status, error) {
                     Picklr.ui.status.append(' &nbsp; <span class="error">ERROR: ' + error + '</span>');
+                }).always(function() {
+                    Picklr.ui.syncNow.html('Sync Now');
                 });
 
             },
@@ -101,6 +104,7 @@
                 Picklr.ui.status = $('#status');
                 Picklr.ui.thumbs = $('#thumbs');
                 Picklr.ui.paging = $('#paging');
+                Picklr.ui.syncNow = $('#sync-now');
 
                 Picklr.template.thumb = Handlebars.compile($('#thumb-template').html());
                 Picklr.template.status = Handlebars.compile($('#status-template').html());
@@ -134,6 +138,13 @@
                     e.stopPropagation();
                     Picklr.globals.page = $(this).data('page');
                     Picklr.load(Picklr.globals.page);
+                });
+
+                Picklr.ui.syncNow.on('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    Picklr.sync();
+                    Picklr.ui.syncNow.html('Syncing...');
                 });
 
                 Picklr.ui.status.on('click', '#reload', function(e) {

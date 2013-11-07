@@ -4,6 +4,7 @@ import os
 import urlparse
 import posixpath
 import re
+import shutil
 
 from functools import wraps
 
@@ -236,11 +237,17 @@ def sync():
                     imageid = str(cursor.lastrowid)
                 else:
                     imageid = str(existing[0])
-                # Grab the thumbnail from Dropbox and save it *locally*, 
-                # using the id of the image record we've just inserted
-                thumbfile = open(os.path.join(currentpath, "static", "img", "thumbs", imageid + ".jpg"), "wb")
-                thumb = client.thumbnail(fpath, size="m", format="JPEG")
-                thumbfile.write(thumb.read())         
+                thumbpath = os.path.join(currentpath, "static", "img", "thumbs", imageid + ".jpg")
+                try:
+                    # Grab the thumbnail from Dropbox and save it *locally*, 
+                    # using the id of the image record we've just inserted
+                    thumbfile = open(thumbpath, "wb")
+                    thumb = client.thumbnail(fpath, size="m", format="JPEG")
+                    thumbfile.write(thumb.read())         
+                except ErrorResponse:
+                    # Copy a placeholder image over
+                    error_thumb = os.path.join(currentpath, "static", "img", "thumb-error.jpg")
+                    shutil.copyfile(error_thumb, thumbpath)
                 added_files += 1       
 
         # Update the cursor hash stored against the user so we can retrieve
