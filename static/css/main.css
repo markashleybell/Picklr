@@ -397,6 +397,9 @@ html, body {
     -moz-border-radius: 3px;
     border-radius: 3px;
 }
+#thumbs > div.selected {
+    border-color: #cc0000;
+}
 #thumbs > div a.edit-tags {
     position: absolute;
     top: 5px;

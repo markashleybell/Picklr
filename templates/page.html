@@ -138,6 +138,8 @@
                     e.preventDefault();
                     e.stopPropagation();
                     var link = $(this);
+                    Picklr.ui.thumbs.find('div').removeClass('selected');
+                    link.parent().addClass('selected');
                     Picklr.ui.idInput.val(link.data('fileid'));
                     Picklr.ui.descriptionInput.val(link.data('description'))
                     Picklr.ui.tagInput.tagit('removeAll');
@@ -183,6 +185,7 @@
                     e.preventDefault();
                     e.stopPropagation();
                     Picklr.ui.form.hide();
+                    Picklr.ui.thumbs.find('div').removeClass('selected');
                     Picklr.save();
                 });
 
