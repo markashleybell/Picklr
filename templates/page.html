@@ -29,6 +29,12 @@
                 status: null,
                 paging: null
             },
+            showInfo: function(msg) {
+                Picklr.ui.status.html('<span class="info">INFO: ' + msg + '</span>');
+            },
+            showError: function(msg) {
+                Picklr.ui.status.html('<span class="error">ERROR: ' + msg + '</span>');
+            },
             load: function(page, callback) {
 
                 $.ajax({
@@ -52,14 +58,14 @@
                     // Create the paging nav
                     for(var i = 1; i <= data.total_pages; i ++) 
                         output.push(Picklr.template.paging({ "n": i }));
-                    Picklr.ui.paging.html(output.join(''));
+                    Picklr.ui.paging.html(Picklr.template.status(data) + ' &nbsp; ' + output.join('|'));
                     // Populate the status bar
-                    Picklr.ui.status.html(Picklr.template.status(data));
+                    Picklr.showInfo('Ready.');
                     // If a callback function has been passed in, call it
                     if(typeof callback === 'function')
                         callback();
                 }).fail(function(request, status, error) {
-                    Picklr.ui.status.append(' &nbsp; <span class="error">ERROR: ' + error + '</span>');
+                    Picklr.showError(error);
                 });
 
             },
@@ -73,9 +79,11 @@
                     dataType: 'json'
                 }).done(function(data) {
                     if(data.added != 0 || data.deleted != 0)
-                        Picklr.ui.status.remove('span.info, span.error').append(' &nbsp; <span class="info">UPDATE: ' + data.added + ' files added, ' + data.deleted + ' deleted. <a href="/" id="reload">Click here to reload</a>.</span>');
+                        Picklr.showInfo(data.added + ' files added, ' + data.deleted + ' deleted. <a href="/" id="reload">Click here to reload</a>.');
+                    else
+                        Picklr.showInfo('Nothing changed.');
                 }).fail(function(request, status, error) {
-                    Picklr.ui.status.append(' &nbsp; <span class="error">ERROR: ' + error + '</span>');
+                    Picklr.showError(error);
                 }).always(function() {
                     Picklr.ui.syncNow.html('Sync Now');
                 });
@@ -96,8 +104,9 @@
                     var item = $('#i-' + Picklr.ui.idInput.val()).find('a.edit-tags').first();
                     item.data('tags', Picklr.ui.tagInput.val());
                     item.data('description', Picklr.ui.descriptionInput.val());
+                    Picklr.showInfo('Saved.');
                 }).fail(function(request, status, error) {
-                    Picklr.ui.status.append(' &nbsp; <span class="error">ERROR: ' + error + '</span>');
+                    Picklr.showError(error);
                 });
 
             },
@@ -173,6 +182,7 @@
                 Picklr.ui.form.on('submit', function(e) {
                     e.preventDefault();
                     e.stopPropagation();
+                    Picklr.ui.form.hide();
                     Picklr.save();
                 });
 
@@ -188,8 +198,6 @@
         });
 
     </script>
-
-    <p>{{ tagstring|safe }}</p>
 
     <form id="tag-editor" action="{{ url_for('save') }}" method="post">
         <input type="hidden" id="fileid" name="fileid" value="0" />
