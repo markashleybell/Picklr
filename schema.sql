@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS users (
     delta_cursor TEXT
 );
 
-CREATE TABLE IF NOT EXISTS images (
+CREATE TABLE IF NOT EXISTS files (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     date_added DATETIME DEFAULT CURRENT_TIMESTAMP,
     sharekey TEXT UNIQUE NOT NULL,
@@ -22,10 +22,10 @@ CREATE TABLE IF NOT EXISTS tags (
     FOREIGN KEY(user_id) REFERENCES users(id)
 );
 
-CREATE TABLE IF NOT EXISTS tags_images (
+CREATE TABLE IF NOT EXISTS tags_files (
     tag_id INTEGER NOT NULL,
-    image_id INTEGER NOT NULL,
+    file_id INTEGER NOT NULL,
     FOREIGN KEY(tag_id) REFERENCES tags(id),
-    FOREIGN KEY(image_id) REFERENCES images(id),
-    PRIMARY KEY(tag_id, image_id)
+    FOREIGN KEY(file_id) REFERENCES files(id),
+    PRIMARY KEY(tag_id, file_id)
 );

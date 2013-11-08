@@ -103,8 +103,14 @@ def get_db_access_token(db, user_id):
     return None if row is None else row[0]
 
 
-def get_db_images(db, user_id, pagesize, page):
-    """Get a user's image records from the db, with paging"""
+def get_db_file_count(db, user_id):
+    """Get the total number of files for the specified user"""
+    row = db.execute("SELECT COUNT id FROM files WHERE user_id = ?", [user_id]).fetchone()
+    return None if row is None else row[0]
+
+
+def get_db_files(db, user_id, pagesize, page):
+    """Get a user's file records from the db, with paging"""
     sql = """
           SELECT 
               id, 
@@ -113,15 +119,15 @@ def get_db_images(db, user_id, pagesize, page):
               date_added, 
               description,
               tags,
-              (SELECT COUNT(id) FROM images where user_id = ?) as total_records
+              (SELECT COUNT(id) FROM files where user_id = ?) as total_records
           FROM
-              images
+              files
           WHERE
               user_id = ?
           AND
               id NOT IN (
                   SELECT
-                      id FROM images
+                      id FROM files
                   ORDER BY
                       date_added DESC
                   LIMIT
@@ -154,8 +160,8 @@ def page(page=None):
     db = get_db()
     access_token = get_db_access_token(db, current_user.id)
     if access_token is not None:
-        return render_template("index.html", user_id=current_user.id, 
-                                             page=page or 1)
+        return render_template("page.html", user_id=current_user.id, 
+                                            page=page or 1)
     else:
         return redirect(get_auth_flow().start())    
 
@@ -167,23 +173,25 @@ def load(page):
     db = get_db()
     access_token = get_db_access_token(db, current_user.id)
     if access_token is not None:
-        # Now fetch the images from the DB and pass them to the view
-        dbimages = get_db_images(db, current_user.id, pagesize, page)
+        # Now fetch the files from the DB and pass them to the view
+        dbfiles = get_db_files(db, current_user.id, pagesize, page)
 
-        total_files = dbimages[0]["total_records"] if len(dbimages) is not 0 else 0
+        total_files = dbfiles[0]["total_records"] if len(dbfiles) is not 0 else 0
         total_pages = total_files / pagesize
         if total_files % pagesize is not 0:
             total_pages += 1
 
         # Get the tags for this user so we can set up autocompletion
         tags = get_db_tags(db, current_user.id)
-        tagstring = ",".join(["'" + tag[0] + "'" for tag in tags])
+        tagstring = "|".join([tag[0] for tag in tags])
 
-        return jsonify({ "images": dbimages, 
+        print tagstring
+
+        return jsonify({ "files": dbfiles, 
                          "page": page, 
                          "total_pages": total_pages, 
                          "total_files": total_files, 
-                         "tagstring": tagstring })
+                         "tags": tagstring })
     else:
         abort(403) 
 
@@ -201,8 +209,8 @@ def sync():
         old_cursor = db.execute("SELECT delta_cursor FROM users WHERE id = ?", [current_user.id]).fetchone()
         delta = client.delta() if old_cursor[0] is None else client.delta(old_cursor[0])
         # The first time we retrieve the delta it will consist of a single entry for 
-        # the /Images sub folder of our app folder, so ignore this if present
-        files = [item for item in delta["entries"] if item[0] != "/images"]
+        # the /Files sub folder of our app folder, so ignore this if present
+        files = [item for item in delta["entries"] if item[0] != "/files"]
         added_files = 0
         deleted_files = 0
         for f in files:
@@ -213,9 +221,9 @@ def sync():
             # If the metadata is empty, it means the file/folder has been deleted
             if f[1] is None:
                 # Delete the file
-                thumb_id = db.execute("SELECT id FROM images WHERE path = ? and user_id = ?", [filename, current_user.id]).fetchone()
+                thumb_id = db.execute("SELECT id FROM files WHERE path = ? and user_id = ?", [filename, current_user.id]).fetchone()
                 if thumb_id is not None:
-                    db.execute("DELETE FROM images WHERE id = ? and user_id = ?", [thumb_id[0], current_user.id])
+                    db.execute("DELETE FROM files WHERE id = ? and user_id = ?", [thumb_id[0], current_user.id])
                     db.commit()
                     # Delete the local thumbnail file
                     os.remove(os.path.join(currentpath, "static", "img", "thumbs", str(thumb_id[0]) + ".jpg"))
@@ -228,24 +236,24 @@ def sync():
                 # case it expires and we need to re-retrieve the share later
                 sharekey = parts.path.split("/")[2]
                 # Insert or update the file
-                imageid = "0"
-                existing = db.execute("SELECT id FROM images WHERE path = ?", [filename]).fetchone()
+                fileid = "0"
+                existing = db.execute("SELECT id FROM files WHERE path = ?", [filename]).fetchone()
                 if existing is None:
                     cursor = db.cursor()
-                    cursor.execute("INSERT INTO images (sharekey, path, user_id) VALUES (?, ?, ?)", [sharekey, filename, current_user.id])
+                    cursor.execute("INSERT INTO files (sharekey, path, user_id) VALUES (?, ?, ?)", [sharekey, filename, current_user.id])
                     db.commit()
-                    imageid = str(cursor.lastrowid)
+                    fileid = str(cursor.lastrowid)
                 else:
-                    imageid = str(existing[0])
-                thumbpath = os.path.join(currentpath, "static", "img", "thumbs", imageid + ".jpg")
+                    fileid = str(existing[0])
+                thumbpath = os.path.join(currentpath, "static", "img", "thumbs", fileid + ".jpg")
                 try:
                     # Grab the thumbnail from Dropbox and save it *locally*, 
-                    # using the id of the image record we've just inserted
+                    # using the id of the file record we've just inserted
                     thumbfile = open(thumbpath, "wb")
                     thumb = client.thumbnail(fpath, size="m", format="JPEG")
                     thumbfile.write(thumb.read())         
                 except ErrorResponse:
-                    # Copy a placeholder image over
+                    # Copy a placeholder file over
                     error_thumb = os.path.join(currentpath, "static", "img", "thumb-error.jpg")
                     shutil.copyfile(error_thumb, thumbpath)
                 added_files += 1       
@@ -256,11 +264,11 @@ def sync():
         db.commit()
 
         
-        # Now fetch the images from the DB and pass them to the view
+        # Now fetch the files from the DB and pass them to the view
         # TODO: Need method to just get record count for user rather than retrieving all data
-        dbimages = get_db_images(db, current_user.id, pagesize, 1)
+        dbfiles = get_db_files(db, current_user.id, pagesize, 1)
 
-        total_files = dbimages[0]["total_records"] if len(dbimages) is not 0 else 0
+        total_files = dbfiles[0]["total_records"] if len(dbfiles) is not 0 else 0
         total_pages = total_files / pagesize
         if total_files % pagesize is not 0:
             total_pages += 1
@@ -278,16 +286,16 @@ def save():
     if not current_user.is_authenticated():
         abort(403)
     db = get_db()
-    image_id = request.form["imgid"]
+    file_id = request.form["fileid"]
     tag_sql = "SELECT tag, id FROM tags WHERE user_id = ?"
     # Get a dictionary of all this user's tags, with tag as key and id as value
     dbtags = { k : v for k, v in db.execute(tag_sql, [current_user.id]).fetchall() }
-    # Get a list of the posted tags and the image description
+    # Get a list of the posted tags and the file description
     tags = [tag.strip() for tag in request.form["tags"].split("|")]
     description = request.form["description"]
     page = request.form["page"]
-    # Delete all the tag joins for this image
-    db.execute("DELETE FROM tags_images WHERE image_id = ?", [image_id])
+    # Delete all the tag joins for this file
+    db.execute("DELETE FROM tags_files WHERE file_id = ?", [file_id])
     newtags = []
     # Loop through all the posted tags
     for tag in tags:
@@ -299,23 +307,23 @@ def save():
             # Add the new tag and id to the dbtags dict so we don't have to query for it again
             dbtags[tag] = cursor.lastrowid;
             newtags.append(tag)
-        # Insert a join record for this tag/image
-        db.execute("INSERT INTO tags_images (tag_id, image_id) VALUES (?, ?)", [dbtags[tag], image_id])
+        # Insert a join record for this tag/file
+        db.execute("INSERT INTO tags_files (tag_id, file_id) VALUES (?, ?)", [dbtags[tag], file_id])
         db.commit();
-    # Update the flattened tags field of the image record, for convenience
-    db.execute("UPDATE images SET description = ?, tags = ? WHERE id = ?", [description, "|".join(tags), image_id])
+    # Update the flattened tags field of the file record, for convenience
+    db.execute("UPDATE files SET description = ?, tags = ? WHERE id = ?", [description, "|".join(tags), file_id])
     db.commit();
     # Only return the newly added tags to add to the client-side 
     # autocompletion array (others will already be present)
     return jsonify({ "newtags": newtags })
 
 
-@app.route("/image/<int:id>")
+@app.route("/file/<int:id>")
 @login_required
-def image(id):
+def viewer(id):
     db = get_db()
-    row = db.execute("SELECT id, path, sharekey FROM images WHERE id = ? AND user_id = ?", [id, current_user.id]).fetchone()
-    return render_template("image.html", image=row)
+    row = db.execute("SELECT id, path, sharekey FROM files WHERE id = ? AND user_id = ?", [id, current_user.id]).fetchone()
+    return render_template("viewer.html", file=row)
 
 
 @app.route("/dropbox-auth-finish")
@@ -349,9 +357,9 @@ def dropbox_auth_finish():
     
     login_user(user, remember=True)
     client = DropboxClient(access_token)
-    # Create the /Images sub folder in the user's app folder
+    # Create the /Files sub folder in the user's app folder
     try:
-        client.file_create_folder("/Images")
+        client.file_create_folder("/Files")
     except ErrorResponse:
         print "Folder already exists"
     return redirect(url_for("page"))
