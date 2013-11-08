@@ -138,7 +138,19 @@
                 Picklr.ui.paging.on('click', 'a', function(e) {
                     e.preventDefault();
                     e.stopPropagation();
-                    Picklr.globals.page = $(this).data('page');
+
+                    var page = $(this).data('page');
+                    var newUrl = '/?page=' + page;
+
+                    // If the browser doesn't support pushState, 
+                    // just redirect user to the page URL
+                    if (typeof history.pushState === 'undefined') 
+                        location.href = newUrl;
+
+                    // Set the global page variable and update the URL
+                    Picklr.globals.page = page;
+                    history.pushState(null, null, newUrl);
+                    
                     Picklr.load(Picklr.globals.page);
                 });
 
