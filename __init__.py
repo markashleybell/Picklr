@@ -213,10 +213,13 @@ def sync():
             # If the metadata is empty, it means the file/folder has been deleted
             if f[1] is None:
                 # Delete the file
-                db.execute("DELETE FROM images WHERE path = ? and user_id = ?", [filename, current_user.id])
-                db.commit()
-                # TODO: Delete the local thumbnail for the image which was removed
-                deleted_files += 1
+                thumb_id = db.execute("SELECT id FROM images WHERE path = ? and user_id = ?", [filename, current_user.id]).fetchone()
+                if thumb_id is not None:
+                    db.execute("DELETE FROM images WHERE id = ? and user_id = ?", [thumb_id[0], current_user.id])
+                    db.commit()
+                    # Delete the local thumbnail file
+                    os.remove(os.path.join(currentpath, "static", "img", "thumbs", str(thumb_id[0]) + ".jpg"))
+                    deleted_files += 1
             else:
                 # Get the publically accessible share URL for this file
                 share = client.share(fpath, short_url=False)
