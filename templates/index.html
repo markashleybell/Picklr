@@ -32,7 +32,7 @@
             load: function(page, callback) {
 
                 $.ajax({
-                    url: '/load?page=' + page,
+                    url: '/load/' + page,
                     cache: false,
                     dataType: 'json'
                 }).done(function(data) {
@@ -140,7 +140,7 @@
                     e.stopPropagation();
 
                     var page = $(this).data('page');
-                    var newUrl = '/?page=' + page;
+                    var newUrl = '/' + page;
 
                     // If the browser doesn't support pushState, 
                     // just redirect user to the page URL
@@ -206,7 +206,7 @@
         <span>Page: {{ page }}, Pages: {{ total_pages }}, Files: {{ total_files }}</span>
     </script>
     <script id="paging-template" type="text/x-handlebars-template">
-        <a href="/?page={{ n }}" data-page="{{ n }}">{{ n }}</a>
+        <a href="/{{ n }}" data-page="{{ n }}">{{ n }}</a>
     </script>
     {% endraw %}
 

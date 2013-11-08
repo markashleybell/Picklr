@@ -148,28 +148,25 @@ def get_db_tags(db, user_id):
 
 
 @app.route("/")
+@app.route("/<int:page>")
 @login_required
-def home():
+def page(page=None):
     db = get_db()
     access_token = get_db_access_token(db, current_user.id)
     if access_token is not None:
-        # Show page 1 if no page query string is supplied
-        page = int(request.args.get("page", 1))
-
         return render_template("index.html", user_id=current_user.id, 
-                                             page=page)
+                                             page=page or 1)
     else:
         return redirect(get_auth_flow().start())    
 
-@app.route("/load")
-def load():
+
+@app.route("/load/<int:page>")
+def load(page):
     if not current_user.is_authenticated():
         abort(403)
     db = get_db()
     access_token = get_db_access_token(db, current_user.id)
     if access_token is not None:
-        # Show page 1 if no page query string is supplied
-        page = int(request.args.get("page", 1))
         # Now fetch the images from the DB and pass them to the view
         dbimages = get_db_images(db, current_user.id, pagesize, page)
 
@@ -288,7 +285,6 @@ def save():
     page = request.form["page"]
     # Delete all the tag joins for this image
     db.execute("DELETE FROM tags_images WHERE image_id = ?", [image_id])
-    # Only return newly added tags
     newtags = []
     # Loop through all the posted tags
     for tag in tags:
@@ -306,7 +302,8 @@ def save():
     # Update the flattened tags field of the image record, for convenience
     db.execute("UPDATE images SET description = ?, tags = ? WHERE id = ?", [description, "|".join(tags), image_id])
     db.commit();
-    # return redirect(url_for("home", page=page))
+    # Only return the newly added tags to add to the client-side 
+    # autocompletion array (others will already be present)
     return jsonify({ "newtags": newtags })
 
 
@@ -333,7 +330,7 @@ def dropbox_auth_finish():
         abort(403)
     except DropboxOAuth2Flow.NotApprovedException, e:
         flash("Not approved?  Why not, bro?")
-        return redirect(url_for("home"))
+        return redirect(url_for("page"))
     except DropboxOAuth2Flow.ProviderException, e:
         app.logger.exception("Auth error" + e)
         abort(403)
@@ -354,7 +351,7 @@ def dropbox_auth_finish():
         client.file_create_folder("/Images")
     except ErrorResponse:
         print "Folder already exists"
-    return redirect(url_for("home"))
+    return redirect(url_for("page"))
 
 
 @app.route("/dropbox-unlink")
@@ -363,7 +360,7 @@ def dropbox_unlink():
     db = get_db()
     update_db_access_token(db, current_user.id, None)
     logout_user()
-    return redirect(url_for("home"))
+    return redirect(url_for("page"))
 
 
 def main():
