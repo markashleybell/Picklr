@@ -93,6 +93,7 @@ def get_auth_flow():
 
 
 def update_db_access_token(db, user_id, access_token):
+    """Update the OAuth access token for the specified user"""
     db.execute("UPDATE users SET access_token = ? WHERE id = ?", [user_id, access_token])
     db.commit()
 
@@ -105,7 +106,7 @@ def get_db_access_token(db, user_id):
 
 def get_db_file_count(db, user_id):
     """Get the total number of files for the specified user"""
-    row = db.execute("SELECT COUNT id FROM files WHERE user_id = ?", [user_id]).fetchone()
+    row = db.execute("SELECT COUNT(id) FROM files WHERE user_id = ?", [user_id]).fetchone()
     return None if row is None else row[0]
 
 
@@ -176,6 +177,7 @@ def load(page):
         # Now fetch the files from the DB and pass them to the view
         dbfiles = get_db_files(db, current_user.id, pagesize, page)
 
+        # Get paging info
         total_files = dbfiles[0]["total_records"] if len(dbfiles) is not 0 else 0
         total_pages = total_files / pagesize
         if total_files % pagesize is not 0:
@@ -263,12 +265,8 @@ def sync():
         db.execute("UPDATE users SET delta_cursor = ? WHERE id = ?", [delta["cursor"], current_user.id])
         db.commit()
 
-        
-        # Now fetch the files from the DB and pass them to the view
-        # TODO: Need method to just get record count for user rather than retrieving all data
-        dbfiles = get_db_files(db, current_user.id, pagesize, 1)
-
-        total_files = dbfiles[0]["total_records"] if len(dbfiles) is not 0 else 0
+        # Get paging info
+        total_files = get_db_file_count(db, current_user.id)
         total_pages = total_files / pagesize
         if total_files % pagesize is not 0:
             total_pages += 1
