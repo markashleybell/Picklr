@@ -61,6 +61,15 @@ def unauthorized():
     attempts to access a method decorated with @login_required"""
     return redirect(get_auth_flow().start())
 
+def api_login_required(method):
+    """Return 403 Unauthorized if user not authed"""
+    @wraps(method)
+    def f(*args, **kwargs):
+        if not current_user.is_authenticated():
+            abort(403)
+        return method(*args, **kwargs)
+    return f
+
 
 def init_db():
     """Create the database tables"""
@@ -168,9 +177,8 @@ def page(page=None):
 
 
 @app.route("/load/<int:page>")
+@api_login_required
 def load(page):
-    if not current_user.is_authenticated():
-        abort(403)
     db = get_db()
     access_token = get_db_access_token(db, current_user.id)
     if access_token is not None:
@@ -199,9 +207,8 @@ def load(page):
 
 
 @app.route("/sync")
+@api_login_required
 def sync():
-    if not current_user.is_authenticated():
-        abort(403)
     db = get_db()
     access_token = get_db_access_token(db, current_user.id)
     if access_token is not None:
@@ -280,9 +287,8 @@ def sync():
 
 
 @app.route("/save", methods=['POST'])
+@api_login_required
 def save():
-    if not current_user.is_authenticated():
-        abort(403)
     db = get_db()
     file_id = request.form["fileid"]
     tag_sql = "SELECT tag, id FROM tags WHERE user_id = ?"
