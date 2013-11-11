@@ -12,7 +12,8 @@
         var Picklr = {
             globals: {
                 page: {{ page }},
-                tags: []
+                tags: [],
+                syncing: false
             },
             ui: {
                 idInput: null,
@@ -72,6 +73,7 @@
             sync: function() {
 
                 Picklr.ui.syncNow.html('Syncing...');
+                Picklr.globals.syncing = true;
                 
                 $.ajax({
                     url: '/sync',
@@ -86,6 +88,7 @@
                     Picklr.showError(error);
                 }).always(function() {
                     Picklr.ui.syncNow.html('Sync Now');
+                    Picklr.globals.syncing = false;
                 });
 
             },
@@ -187,6 +190,13 @@
                     Picklr.ui.form.hide();
                     Picklr.ui.thumbs.find('div').removeClass('selected');
                     Picklr.save();
+                });
+
+                // Try to stop the user leaving in the middle of a sync operation
+                $(window).bind('beforeunload', function () {
+                    if (Picklr.globals.syncing) {
+                        return 'A sync is currently in progress.';
+                    }
                 });
 
                 Picklr.load(Picklr.globals.page, Picklr.sync);

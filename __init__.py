@@ -217,7 +217,7 @@ def sync():
         deleted_files = 0
         for f in files:
             # The delta API call returns a list of two-element lists
-            # Element 0 is the lowercased file path, element 1 is the file metadata
+            # Element 0 is the *lowercased* file path, element 1 is the file metadata
             fpath = f[0]
             filename = os.path.basename(fpath)
             # If the metadata is empty, it means the file/folder has been deleted
