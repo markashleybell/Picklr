@@ -382,6 +382,11 @@ html, body {
     padding: 0;
 }
 
+p {
+    margin: 0;
+    padding: 1em 0;
+}
+
 #thumbs {
     width: 100%;
 }
@@ -428,7 +433,9 @@ html, body {
     width: 100%;
     height: 100%;
     background: #EEE;
-    position: relative;
+    position: absolute;
+    top: 0;
+    left: 0;
     text-align: center;
 }
 

@@ -194,9 +194,7 @@ def load(page):
         # Get the tags for this user so we can set up autocompletion
         tags = get_db_tags(db, current_user.id)
         tagstring = "|".join([tag[0] for tag in tags])
-
-        print tagstring
-
+        
         return jsonify({ "files": dbfiles, 
                          "page": page, 
                          "total_pages": total_pages, 

@@ -28,7 +28,8 @@
             template: {
                 thumb: null,
                 status: null,
-                paging: null
+                paging: null,
+                viewer: null
             },
             showInfo: function(msg) {
                 Picklr.ui.status.html('<span class="info">INFO: ' + msg + '</span>');
@@ -127,6 +128,7 @@
                 Picklr.template.thumb = Handlebars.compile($('#thumb-template').html());
                 Picklr.template.status = Handlebars.compile($('#status-template').html());
                 Picklr.template.paging = Handlebars.compile($('#paging-template').html());
+                Picklr.template.viewer = Handlebars.compile($('#viewer-template').html());
 
                 Picklr.ui.tagInput.tagit({
                     singleFieldDelimiter: '|',
@@ -151,6 +153,28 @@
                     });
                     Picklr.ui.form.show();
                     Picklr.ui.form.find('.tagit input[type=text]:first').focus();
+                });
+
+                Picklr.ui.thumbs.on('click', 'a.view-large', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    var link = $(this);
+                    var href = link.attr('href');
+
+                    // If the browser doesn't support pushState, 
+                    // just redirect user to the page URL
+                    if (typeof history.pushState === 'undefined') 
+                        location.href = href;
+
+                    // Update the URL
+                    history.pushState(null, null, href);
+
+                    var html = Picklr.template.viewer({ 
+                        'sharekey': link.data('sharekey'),
+                        'path': link.data('path')
+                    });
+
+                    Picklr.ui.thumbs.after(html);
                 });
 
                 Picklr.ui.paging.on('click', 'a', function(e) {
@@ -199,6 +223,13 @@
                     }
                 });
 
+                // Remove the image viewer container when back is pressed
+                $(window).bind('popstate', function(e) { 
+                    // TODO: Check url, no need to remove on every back button press
+                    if(e.originalEvent.state === null)
+                        $('#large-image-container').remove();
+                });
+
                 Picklr.load(Picklr.globals.page, Picklr.sync);
 
             }
@@ -226,7 +257,7 @@
     <script id="thumb-template" type="text/x-handlebars-template">
         <div id="i-{{ id }}">
             <a class="edit-tags" href="/file/{{ id }}" data-fileid="{{ id }}" data-tags="{{ tags }}" data-description="{{ description }}">E</a>
-            <a class="view-large" href="/file/{{ id }}"><img src="/static/img/thumbs/{{ id }}.jpg" alt="Added {{ date_added }}" /></a>
+            <a class="view-large" href="/file/{{ id }}" data-sharekey="{{ sharekey }}" data-path="{{ path }}"><img src="/static/img/thumbs/{{ id }}.jpg" alt="Added {{ date_added }}" /></a>
         </div>
     </script>
     <script id="status-template" type="text/x-handlebars-template">
@@ -235,6 +266,15 @@
     <script id="paging-template" type="text/x-handlebars-template">
         <a href="/{{ n }}" data-page="{{ n }}">{{ n }}</a>
     </script>
+    <script id="viewer-template" type="text/x-handlebars-template">
+        <div id="large-image-container">
+            <div id="large-image">
+                <img src="https://dl.dropboxusercontent.com/s/{{ sharekey }}/{{ path }}" /></a>
+            </div>
+        </div>
+    </script>
     {% endraw %}
+
+    <script type="text/javascript"></script>
 
 {% endblock %}
