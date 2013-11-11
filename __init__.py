@@ -5,6 +5,7 @@ import urlparse
 import posixpath
 import re
 import shutil
+import urllib2
 
 from functools import wraps
 
@@ -195,6 +196,11 @@ def load(page):
         tags = get_db_tags(db, current_user.id)
         tagstring = "|".join([tag[0] for tag in tags])
         
+        # URLencode all the filenames which will get written out as data attributes
+        # TODO: Is there a tidier way to do this?
+        for f in dbfiles:
+            f['path'] = urllib2.quote(f['path'].encode("utf8"))
+
         return jsonify({ "files": dbfiles, 
                          "page": page, 
                          "total_pages": total_pages, 
