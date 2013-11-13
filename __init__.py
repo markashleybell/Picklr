@@ -31,7 +31,7 @@ parentpath = os.path.abspath(os.path.join(currentpath, os.pardir))
 dbpath = os.path.join(parentpath, "db")
 
 # How many thumbs to show per page
-pagesize = 25
+pagesize = 20
 
 # Ensure db directory exists
 try:
@@ -120,38 +120,133 @@ def get_db_file_count(db, user_id):
     return None if row is None else row[0]
 
 
-def get_db_files(db, user_id, pagesize, page):
+def get_db_files(db, user_id, pagesize, page, query=None):
     """Get a user's file records from the db, with paging"""
-    sql = """
-          SELECT 
-              id, 
-              path, 
-              sharekey, 
-              date_added, 
-              description,
-              tags,
-              (SELECT COUNT(id) FROM files where user_id = ?) as total_records
-          FROM
-              files
-          WHERE
-              user_id = ?
-          AND
-              id NOT IN (
-                  SELECT
-                      id FROM files
-                  ORDER BY
-                      date_added DESC
-                  LIMIT
-                      ? -- Start at
-              )
-          ORDER BY
-              date_added DESC
-          LIMIT
-              ? -- Page Size
-          """
+    paging_sql = """
+                 SELECT
+                     f1.id,
+                     f1.path,
+                     f1.sharekey,
+                     f1.date_added,
+                     f1.description,
+                     f1.tags,
+                     (
+                         SELECT
+                             COUNT(*)
+                         FROM
+                             files f3
+                         WHERE
+                             f3.user_id = ?
+                     ) as total_records
+                 FROM
+                     files f1
+                 WHERE
+                     f1.user_id = ?
+                 AND
+                     f1.id NOT IN (
+                         SELECT
+                             f2.id
+                         FROM
+                             files f2
+                         WHERE
+                             f2.user_id = ?
+                         ORDER BY
+                             f2.date_added DESC
+                         LIMIT
+                             ? -- Start at
+                     )
+                 ORDER BY
+                     f1.date_added DESC
+                 LIMIT
+                     ? -- Page Size
+                 """
+
+    search_paging_sql = """
+                        SELECT
+                            f1.id,
+                            f1.path,
+                            f1.sharekey,
+                            f1.date_added,
+                            f1.description,
+                            f1.tags,
+                            (
+                                SELECT 
+                                    COUNT(*) 
+                                FROM (
+                                    SELECT
+                                        f3.sharekey
+                                    FROM
+                                        files f3, 
+                                        tags_files m3, 
+                                        tags t3
+                                    WHERE
+                                        f3.user_id = ?
+                                    AND
+                                        m3.tag_id = t3.id
+                                    AND
+                                        (t3.tag IN ({0}))
+                                    AND
+                                        f3.id = m3.file_id
+                                    GROUP BY
+                                        f3.id
+                                    HAVING
+                                        COUNT(f3.id) = {1}
+                                )
+                          ) as total_records
+                        FROM
+                            files f1, tags_files m1, tags t1
+                        WHERE
+                            f1.user_id = ?
+                        AND
+                            m1.tag_id = t1.id
+                        AND
+                            (t1.tag IN ({0}))
+                        AND
+                            f1.id = m1.file_id
+                        AND
+                            f1.id NOT IN (
+                                SELECT
+                                    f2.id
+                                FROM
+                                    files f2, 
+                                    tags_files m2, 
+                                    tags t2
+                                WHERE
+                                    f2.user_id = ?
+                                AND
+                                    m2.tag_id = t2.id
+                                AND
+                                    (t2.tag IN ({0}))
+                                AND
+                                    f2.id = m2.file_id
+                                GROUP BY
+                                    f2.id
+                                HAVING
+                                    COUNT(f2.id) = {1}
+                                ORDER BY
+                                    f2.date_added DESC
+                                LIMIT
+                                    ? -- Start at
+                            )
+                        GROUP BY
+                            f1.id
+                        HAVING
+                            COUNT(f1.id) = {1}
+                        ORDER BY
+                            f1.date_added DESC
+                        LIMIT
+                            ? -- Page Size
+                        """
+
     start_at = (page - 1) * pagesize
     cursor = db.cursor()
-    rows = cursor.execute(sql, [user_id, user_id, start_at, pagesize]).fetchall()
+    query_terms = [] if query is None else [s.lower().strip() for s in query.split(' ') if s.strip() is not '']
+    # TODO: Escape tags
+    in_list = '\'' + '\',\''.join(query_terms) + '\''
+    sql = paging_sql if query is None else search_paging_sql.format(in_list, len(query_terms))
+
+    print sql
+    rows = cursor.execute(sql, [user_id, user_id, user_id, start_at, pagesize]).fetchall()
     cols = [d[0] for d in cursor.description]
     dict_rows = []
     for row in rows:
@@ -184,7 +279,8 @@ def load(page):
     access_token = get_db_access_token(db, current_user.id)
     if access_token is not None:
         # Now fetch the files from the DB and pass them to the view
-        dbfiles = get_db_files(db, current_user.id, pagesize, page)
+        query = request.args.get('query')
+        dbfiles = get_db_files(db, current_user.id, pagesize, page, query)
 
         # Get paging info
         total_files = dbfiles[0]["total_records"] if len(dbfiles) is not 0 else 0
