@@ -31,7 +31,7 @@ parentpath = os.path.abspath(os.path.join(currentpath, os.pardir))
 dbpath = os.path.join(parentpath, "db")
 
 # How many thumbs to show per page
-pagesize = 20
+pagesize = 10
 
 # Ensure db directory exists
 try:
@@ -240,12 +240,11 @@ def get_db_files(db, user_id, pagesize, page, query=None):
 
     start_at = (page - 1) * pagesize
     cursor = db.cursor()
-    query_terms = [] if query is None else [s.lower().strip() for s in query.split(' ') if s.strip() is not '']
+    query_terms = [] if query is None else [s.lower().strip() for s in query.split('|') if s.strip() is not '']
     # TODO: Escape tags
     in_list = '\'' + '\',\''.join(query_terms) + '\''
     sql = paging_sql if query is None else search_paging_sql.format(in_list, len(query_terms))
-
-    print sql
+    # print sql
     rows = cursor.execute(sql, [user_id, user_id, user_id, start_at, pagesize]).fetchall()
     cols = [d[0] for d in cursor.description]
     dict_rows = []
