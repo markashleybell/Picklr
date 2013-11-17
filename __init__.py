@@ -240,12 +240,29 @@ def get_db_files(db, user_id, pagesize, page, query=None):
 
     start_at = (page - 1) * pagesize
     cursor = db.cursor()
-    query_terms = [] if query is None else [s.lower().strip() for s in query.split('|') if s.strip() is not '']
-    # TODO: Escape tags
-    in_list = '\'' + '\',\''.join(query_terms) + '\''
-    sql = paging_sql if query is None else search_paging_sql.format(in_list, len(query_terms))
-    # print sql
-    rows = cursor.execute(sql, [user_id, user_id, user_id, start_at, pagesize]).fetchall()
+
+    if query is None:
+        sql = paging_sql
+        params = [user_id, user_id, user_id, start_at, pagesize]
+    else:
+        # Try and tidy up the tag query terms a bit
+        query_terms = [s.lower().strip() for s in query.split('|') if s.strip() is not '']
+        # Create parameter placeholders for IN clauses
+        in_list = ','.join('?' for s in query_terms)
+        # Subsitute the placeholders in the SQL string with the correct values
+        sql = search_paging_sql.format(in_list, len(query_terms))
+        # Slightly unwieldy, but safe way of supplying the param list
+        params = [user_id]
+        params.extend(query_terms)
+        params.append(user_id)
+        params.extend(query_terms)
+        params.append(user_id)
+        params.extend(query_terms)
+        params.append(start_at)
+        params.append(pagesize)
+
+    # Get all results and return them as a dictionary with column names as keys
+    rows = cursor.execute(sql, params).fetchall()
     cols = [d[0] for d in cursor.description]
     dict_rows = []
     for row in rows:
