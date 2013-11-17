@@ -31,7 +31,7 @@ parentpath = os.path.abspath(os.path.join(currentpath, os.pardir))
 dbpath = os.path.join(parentpath, "db")
 
 # How many thumbs to show per page
-pagesize = 10
+pagesize = 20
 
 # Ensure db directory exists
 try:
@@ -338,13 +338,46 @@ def sync():
         files = [item for item in delta["entries"] if item[0] != "/files"]
         added_files = 0
         deleted_files = 0
-        for f in files:
+
+        if len(files) > 0:
+            sets = [files[x:x+100] for x in xrange(0, len(files), 100)]
+
+            print sets
+
+            col_sql = """
+                      INSERT INTO tasks (delta_cursor, path, type, user_id) 
+                      SELECT ? AS delta_cursor, ? AS path, ? AS type, ? AS user_id 
+                      """
+
+            for s in sets:
+                params = []
+                sql = []
+
+                for i, f in enumerate(s):
+                    if i == 0:
+                        sql.append(col_sql)
+                    else:
+                        sql.append("UNION ALL SELECT ?, ?, ?, ?")
+                    params.extend(['', f[0], 1 if f[1] is None else 0, current_user.id])
+
+                db.execute(" ".join(sql), params)
+                db.commit()
+            
+
+            # Update the cursor hash stored against the user so we can retrieve
+            # a delta of just the changes from this point onward next time we update
+            db.execute("UPDATE users SET delta_cursor = ? WHERE id = ?", [delta["cursor"], current_user.id])
+            db.commit()
+
+        tasks = db.execute("SELECT path, type, id FROM tasks WHERE user_id = ? ORDER BY id", [current_user.id]).fetchall()
+
+        for f in tasks:
             # The delta API call returns a list of two-element lists
             # Element 0 is the *lowercased* file path, element 1 is the file metadata
             fpath = f[0]
             filename = os.path.basename(fpath)
             # If the metadata is empty, it means the file/folder has been deleted
-            if f[1] is None:
+            if f[1] == 1:
                 # Delete the file
                 thumb_id = db.execute("SELECT id FROM files WHERE path = ? and user_id = ?", [filename, current_user.id]).fetchone()
                 if thumb_id is not None:
@@ -382,11 +415,8 @@ def sync():
                     error_thumb = os.path.join(currentpath, "static", "img", "thumb-error.jpg")
                     shutil.copyfile(error_thumb, thumbpath)
                 added_files += 1       
-
-        # Update the cursor hash stored against the user so we can retrieve
-        # a delta of just the changes from this point onward next time we update
-        db.execute("UPDATE users SET delta_cursor = ? WHERE id = ?", [delta["cursor"], current_user.id])
-        db.commit()
+            db.execute("DELETE FROM tasks WHERE id = ?", [f[2]])
+            db.commit()
 
         # Get paging info
         total_files = get_db_file_count(db, current_user.id)

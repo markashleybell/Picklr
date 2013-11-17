@@ -29,3 +29,12 @@ CREATE TABLE IF NOT EXISTS tags_files (
     FOREIGN KEY(file_id) REFERENCES files(id),
     PRIMARY KEY(tag_id, file_id)
 );
+
+CREATE TABLE IF NOT EXISTS tasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    delta_cursor TEXT NOT NULL,
+    path TEXT NOT NULL,
+    type INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    FOREIGN KEY(user_id) REFERENCES users(id)
+);
