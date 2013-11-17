@@ -338,39 +338,38 @@ def sync():
         files = [item for item in delta["entries"] if item[0] != "/files"]
         added_files = 0
         deleted_files = 0
-
+        # If there are any changes
         if len(files) > 0:
+            delta_cursor = delta["cursor"]
+            # Divide the delta changes into sets of 100,
+            # to get around SQLite insert limitations
             sets = [files[x:x+100] for x in xrange(0, len(files), 100)]
-
-            print sets
-
-            col_sql = """
-                      INSERT INTO tasks (delta_cursor, path, type, user_id) 
-                      SELECT ? AS delta_cursor, ? AS path, ? AS type, ? AS user_id 
-                      """
-
+            # First item in each set will be mapped to col_sql
+            insert_sql = """INSERT INTO tasks (delta_cursor, path, type, user_id) 
+                      SELECT ? AS delta_cursor, ? AS path, ? AS type, ? AS user_id"""
+            # All other items will be mapped to this UNION clause
+            union_sql = "UNION ALL SELECT ?, ?, ?, ?"
+            # Loop through the sets
             for s in sets:
                 params = []
                 sql = []
-
+                # Loop through the files in the set
                 for i, f in enumerate(s):
-                    if i == 0:
-                        sql.append(col_sql)
-                    else:
-                        sql.append("UNION ALL SELECT ?, ?, ?, ?")
-                    params.extend(['', f[0], 1 if f[1] is None else 0, current_user.id])
-
+                    sql.append(insert_sql if i == 0 else union_sql)
+                    params.extend([delta_cursor, f[0], 1 if f[1] is None else 0, current_user.id])
+                # Insert the items
                 db.execute(" ".join(sql), params)
                 db.commit()
-            
-
-            # Update the cursor hash stored against the user so we can retrieve
-            # a delta of just the changes from this point onward next time we update
-            db.execute("UPDATE users SET delta_cursor = ? WHERE id = ?", [delta["cursor"], current_user.id])
+            # Update the cursor hash stored against the user, so we can retrieve a delta (diff) 
+            # of just the changes from this point onward the next time we update
+            db.execute("UPDATE users SET delta_cursor = ? WHERE id = ?", [delta_cursor, current_user.id])
             db.commit()
-
+        
+        # Get any tasks for the current user from the database (this could include tasks
+        # from a previous sync which failed or was interrupted for some reason)
         tasks = db.execute("SELECT path, type, id FROM tasks WHERE user_id = ? ORDER BY id", [current_user.id]).fetchall()
 
+        # Loop through all the tasks and retrieve data using API calls
         for f in tasks:
             # The delta API call returns a list of two-element lists
             # Element 0 is the *lowercased* file path, element 1 is the file metadata
