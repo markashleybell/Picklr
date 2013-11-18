@@ -126,10 +126,10 @@ var Picklr = (function($, Handlebars) {
             _showError(error);
         });
     };
-    var _refetchThumbnail = function(id, path) {
+    var _refetchThumbnail = function(id) {
         $.ajax({
             url: '/refetch-thumbnail',
-            data: { id: id, path: path },
+            data: { id: id },
             cache: false,
             type: 'POST',
             dataType: 'json',
@@ -138,6 +138,8 @@ var Picklr = (function($, Handlebars) {
                 _showInfo('Thumbnail updated.');
             else
                 _showError('Couldn\'t retrieve thumbnail.');
+            // Force-refresh the thumbnail 
+            $('#i-' + id).find('a.view-large > img').first().attr('src', '/static/img/thumbs/' + id + '.jpg?r=' + new Date().getTime());
         }).fail(function(request, status, error) {
             _showError(error);
         });
@@ -279,8 +281,7 @@ var Picklr = (function($, Handlebars) {
                 e.preventDefault();
                 e.stopPropagation();
                 var id = _ui.idInput.val();
-                var path = $('#i-' + id).find('a.view-large').first().data('path');
-                _refetchThumbnail(id, path);
+                _refetchThumbnail(id);
             });
             // Handle user closing the window/tab
             $(window).bind('beforeunload', function () {
