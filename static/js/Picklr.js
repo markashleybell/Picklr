@@ -1,4 +1,4 @@
-var Picklr = (function($) {
+var Picklr = (function($, Handlebars) {
     // Configuration variables
     var _config = {
         PROGRESS_POLL_INTERVAL: 3000
@@ -276,4 +276,4 @@ var Picklr = (function($) {
             _load(_globals.page, _ui.queryInput.val(), _sync);
         }
     }
-}(jQuery));
+}(jQuery, Handlebars));
