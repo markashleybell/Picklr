@@ -439,6 +439,33 @@ def report_progress():
     return jsonify({ "remaining": 0 if row is None else row[0] })
 
 
+@app.route("/refetch-thumbnail", methods=['POST'])
+@api_login_required
+def refetch_thumbnail():
+    db = get_db()
+    access_token = get_db_access_token(db, current_user.id)
+    if access_token is not None:
+        client = DropboxClient(access_token)
+        fileid = request.form["id"]
+        filepath = request.form["path"]
+        thumbpath = os.path.join(currentpath, "static", "img", "thumbs", fileid + ".jpg")
+        result = 0
+        try:
+            # Grab the thumbnail from Dropbox and save it *locally*, 
+            # using the id of the file record we've just inserted
+            thumbfile = open(thumbpath, "wb")
+            thumb = client.thumbnail("/" + filepath, size="m", format="JPEG")
+            thumbfile.write(thumb.read())  
+            result = 1       
+        except ErrorResponse:
+            # Copy a placeholder file over
+            error_thumb = os.path.join(currentpath, "static", "img", "thumb-error.jpg")
+            shutil.copyfile(error_thumb, thumbpath)
+        return jsonify({ "result": result })
+    else:
+        abort(403) 
+
+
 @app.route("/save", methods=['POST'])
 @api_login_required
 def save():

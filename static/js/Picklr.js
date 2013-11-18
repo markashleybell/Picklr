@@ -126,6 +126,22 @@ var Picklr = (function($, Handlebars) {
             _showError(error);
         });
     };
+    var _refetchThumbnail = function(id, path) {
+        $.ajax({
+            url: '/refetch-thumbnail',
+            data: { id: id, path: path },
+            cache: false,
+            type: 'POST',
+            dataType: 'json',
+        }).done(function(data) {
+            if(data.result == 1)
+                _showInfo('Thumbnail updated.');
+            else
+                _showError('Couldn\'t retrieve thumbnail.');
+        }).fail(function(request, status, error) {
+            _showError(error);
+        });
+    };
     // Public methods
     return {
         // Initialise the app on load
@@ -257,6 +273,14 @@ var Picklr = (function($, Handlebars) {
                 e.stopPropagation();
                 _ui.metaDataForm.hide();
                 _ui.thumbs.find('div').removeClass('selected');
+            });
+            // Handle refetch thumbnail button click
+            $('#refetch-thumbnail').on('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                var id = _ui.idInput.val();
+                var path = $('#i-' + id).find('a.view-large').first().data('path');
+                _refetchThumbnail(id, path);
             });
             // Handle user closing the window/tab
             $(window).bind('beforeunload', function () {
