@@ -431,6 +431,14 @@ def sync():
         abort(403) 
 
 
+@app.route("/report-progress")
+@api_login_required
+def report_progress():
+    db = get_db()
+    row = db.execute("SELECT COUNT(id) FROM tasks WHERE user_id = ?", [current_user.id]).fetchone()
+    return jsonify({ "remaining": 0 if row is None else row[0] })
+
+
 @app.route("/save", methods=['POST'])
 @api_login_required
 def save():
@@ -525,7 +533,7 @@ def dropbox_unlink():
 
 def main():
     init_db()
-    app.run()
+    app.run(threaded=True)
 
 
 if __name__ == "__main__":

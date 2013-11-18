@@ -15,11 +15,16 @@
     <script type="text/javascript">
 
         var Picklr = {
+            // Configuration variables
+            config: {
+                PROGRESS_POLL_INTERVAL: 3000
+            },
             // Global variables for this app
             globals: {
                 page: {{ page }},
                 tags: [],
-                syncing: false
+                syncing: false, 
+                timer: null,
             },
             // Cached UI elements
             ui: {
@@ -90,12 +95,13 @@
                 Picklr.ui.syncNow.html('Syncing...');
                 Picklr.showInfo('Sync in progress...');
                 Picklr.globals.syncing = true;
-                
+
                 $.ajax({
                     url: '/sync',
                     cache: false,
                     dataType: 'json'
                 }).done(function(data) {
+                    Picklr.globals.syncing = false;
                     if(data.added != 0 || data.deleted != 0)
                         Picklr.showInfo(data.added + ' files added, ' + data.deleted + ' deleted. <a href="/" id="reload">Click here to reload</a>.');
                     else
@@ -103,10 +109,21 @@
                 }).fail(function(request, status, error) {
                     Picklr.showError(error);
                 }).always(function() {
+                    // Make sure we clear the interval which is checking progress
+                    clearInterval(Picklr.globals.timer);
                     Picklr.ui.syncNow.html('Sync Now');
                     Picklr.globals.syncing = false;
                 });
-
+                // Kick off the progress polling
+                Picklr.globals.timer = setInterval(Picklr.showProgress, Picklr.config.PROGRESS_POLL_INTERVAL);
+            },
+            // Fetch the current number of items remaining 
+            // in the sync queue for the current user
+            showProgress: function() {
+                $.get('/report-progress', function(data) {
+                    if(Picklr.globals.syncing)
+                        Picklr.showInfo('Sync in progress... ' + data.remaining + ' files remaining.');
+                });
             },
             // Save metadata for an image
             save: function(page) {
