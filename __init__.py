@@ -448,7 +448,6 @@ def refetch_thumbnail():
         client = DropboxClient(access_token)
         fileid = request.form["id"]
         row = db.execute("SELECT path FROM files WHERE id = ?", [fileid]).fetchone()
-        print row[0]
         thumbpath = os.path.join(currentpath, "static", "img", "thumbs", fileid + ".jpg")
         result = 0
         try:
@@ -459,9 +458,7 @@ def refetch_thumbnail():
             thumbfile.write(thumb.read())  
             result = 1       
         except ErrorResponse as e:
-            print e.status
-            print e.error_msg
-            # print e.user_error_msg
+            # print e.status + '|' + e.error_msg + '|' + e.user_error_msg
             # Copy a placeholder file over
             error_thumb = os.path.join(currentpath, "static", "img", "thumb-error.jpg")
             shutil.copyfile(error_thumb, thumbpath)
