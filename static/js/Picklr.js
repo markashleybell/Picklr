@@ -292,10 +292,17 @@ var Picklr = (function($, Handlebars) {
             });
             // Handle back button actions
             $(window).bind('popstate', function(e) { 
-                // Remove the image viewer container when back is pressed
-                // TODO: Check url, no need to remove on every back button press
-                if(e.originalEvent.state === null)
-                    $('#large-image-container').remove();
+                var path = window.location.pathname;
+                // If we're not looking at the file viewer
+                if(path.indexOf('/file') == -1) {
+                    // Remove the viewer container when back is pressed
+                    if(e.originalEvent.state === null)
+                        $('#large-image-container').remove();
+                    // Parse the URL and reload the page
+                    var page = parseInt(path.substring(1), 10);
+                    _globals.page = (isNaN(page)) ? 1 : page;
+                    _load(_globals.page, _ui.queryInput.val());
+                } 
             });
             // Initially load the first page and kick off a sync operation
             _load(_globals.page, _ui.queryInput.val(), _sync);
