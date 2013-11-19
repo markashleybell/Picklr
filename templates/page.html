@@ -31,7 +31,7 @@
     <script id="thumb-template" type="text/x-handlebars-template">
         <div id="i-{{ id }}">
             <a class="edit-tags" href="/file/{{ id }}" data-fileid="{{ id }}" data-tags="{{ tags }}" data-description="{{ description }}">E</a>
-            <a class="view-large" href="/file/{{ id }}" data-sharekey="{{ sharekey }}" data-path="{{ path }}"><img src="/static/img/thumbs/{{ id }}.jpg" alt="Added {{ date_added }}" /></a>
+            <a class="view-large" href="/file/{{ id }}" data-fileid="{{ id }}" data-sharekey="{{ sharekey }}" data-path="{{ path }}"><img src="/static/img/thumbs/{{ id }}.jpg" alt="Added {{ date_added }}" /></a>
         </div>
     </script>
     <script id="status-template" type="text/x-handlebars-template">

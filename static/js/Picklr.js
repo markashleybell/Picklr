@@ -1,14 +1,16 @@
-var Picklr = (function($, Handlebars) {
+var Picklr = (function($, Handlebars, History) {
     // Configuration variables
     var _config = {
-        PROGRESS_POLL_INTERVAL: 3000
+        PROGRESS_POLL_INTERVAL: 3000,
+        ENABLE_HISTORY_LOGGING: false
     };
     // Global variables for this app
     var _globals = {
         page: 1,
         tags: [],
         syncing: false, 
-        timer: null
+        timer: null,
+        ids: []
     };
     // Cached UI elements
     var _ui = {
@@ -51,9 +53,12 @@ var Picklr = (function($, Handlebars) {
             [].push.apply(_globals.tags, data.tags.split('|'));
             // Buffer array to efficiently concatenate output HTML
             var output = [];
+            // Reset the global array of image IDs
+            _globals.ids.length = 0;
             // Create the thumbnail display
             $.each(data.files, function(i, item) {
                 output.push(_template.thumb(item));
+                _globals.ids.push(item.id);
             });
             _ui.thumbs.html(output.join(''));
             // Empty the output array
@@ -70,6 +75,14 @@ var Picklr = (function($, Handlebars) {
         }).fail(function(request, status, error) {
             _showError(error);
         });
+    };
+    var _view = function(id) {
+        var link = $('#i-' + id + ' a.view-large').first();
+        var html = _template.viewer({ 
+            'sharekey': link.data('sharekey'),
+            'path': link.data('path')
+        });
+        _ui.thumbs.after(html);
     };
     // Synchronise with Dropbox
     var _sync = function() {
@@ -126,6 +139,7 @@ var Picklr = (function($, Handlebars) {
             _showError(error);
         });
     };
+    // Refetch a thumbnail (in case the initial fetch failed for some reason)
     var _refetchThumbnail = function(id) {
         $.ajax({
             url: '/refetch-thumbnail',
@@ -149,6 +163,10 @@ var Picklr = (function($, Handlebars) {
         // Initialise the app on load
         init: function(page) {
             _globals.page = page;
+            // Set up History.js
+            History.options.debug = _config.ENABLE_HISTORY_LOGGING;
+            var state = History.getState();
+            History.debug('initial:', state.data, state.title, state.url);
             // Cache selectors for UI elements
             _ui.idInput = $('#fileid');
             _ui.descriptionInput = $('#description');
@@ -203,42 +221,15 @@ var Picklr = (function($, Handlebars) {
             _ui.thumbs.on('click', 'a.view-large', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
-                var link = $(this);
-                var href = link.attr('href');
-
-                // If the browser doesn't support pushState, 
-                // just redirect user to the page URL
-                if (typeof history.pushState === 'undefined') 
-                    location.href = href;
-
-                // Update the URL
-                history.pushState(null, null, href);
-
-                var html = _template.viewer({ 
-                    'sharekey': link.data('sharekey'),
-                    'path': link.data('path')
-                });
-
-                _ui.thumbs.after(html);
+                var id = parseInt($(this).data('fileid'), 10);
+                History.pushState({ page: null, image: id }, 'Image ' + id, '/file/' + id);
             });
             // Handle click on a page number link
             _ui.paging.on('click', 'a', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
-
-                var page = $(this).data('page');
-                var newUrl = '/' + page;
-
-                // If the browser doesn't support pushState, 
-                // just redirect user to the page URL
-                if (typeof history.pushState === 'undefined') 
-                    location.href = newUrl;
-
-                // Set the global page variable and update the URL
-                _globals.page = page;
-                history.pushState(null, null, newUrl);
-                
-                _load(_globals.page, _ui.queryInput.val());
+                var page = parseInt($(this).data('page'), 10);
+                History.pushState({ page: page, image: null }, 'Page ' + page, '/' + page);
             });
             // Handle sync button click
             _ui.syncNow.on('click', function(e) {
@@ -285,27 +276,32 @@ var Picklr = (function($, Handlebars) {
             });
             // Handle user closing the window/tab
             $(window).bind('beforeunload', function () {
-                // Try to stop the user leaving in the middle of a sync operation
+                // TRY(!) to stop the user leaving in the middle of a sync operation
                 if (_globals.syncing) {
                     return 'A sync is currently in progress.';
                 }
             });
-            // Handle back button actions
-            $(window).bind('popstate', function(e) { 
-                var path = window.location.pathname;
-                // If we're not looking at the file viewer
-                if(path.indexOf('/file') == -1) {
-                    // Remove the viewer container when back is pressed
-                    if(e.originalEvent.state === null)
-                        $('#large-image-container').remove();
-                    // Parse the URL and reload the page
-                    var page = parseInt(path.substring(1), 10);
-                    _globals.page = (isNaN(page)) ? 1 : page;
-                    _load(_globals.page, _ui.queryInput.val());
-                } 
+            // Bind to History.js state change
+            $(window).bind('statechange', function() {
+                // Log the state
+                var state = History.getState(); 
+                History.debug('statechange:', state.data, state.title, state.url);
+                // If the state contains a page ID, load the page
+                if(state.data.page) {
+                    $('#large-image-container').remove();
+                    _load(state.data.page, _ui.queryInput.val());
+                    _globals.page = state.data.page;
+                } else if(state.data.image) { // If the state contains an image ID, load it
+                    _view(state.data.image);
+                } else { // Default to the first page
+                    $('#large-image-container').remove();
+                    _load(1, _ui.queryInput.val());
+                    _globals.page = 1;
+                }
             });
             // Initially load the first page and kick off a sync operation
             _load(_globals.page, _ui.queryInput.val(), _sync);
-        }
+        },
+        globals: _globals
     }
-}(jQuery, Handlebars));
+}(jQuery, Handlebars, History));
