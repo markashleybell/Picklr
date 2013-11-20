@@ -6,6 +6,7 @@ import posixpath
 import re
 import shutil
 import urllib2
+import time
 
 from functools import wraps
 
@@ -277,13 +278,16 @@ def get_db_tags(db, user_id):
 
 @app.route("/")
 @app.route("/<int:page>")
+@app.route("/file/<int:file>")
 @login_required
-def page(page=None):
+def page(page=None, file=None):
     db = get_db()
     access_token = get_db_access_token(db, current_user.id)
     if access_token is not None:
         return render_template("page.html", user_id=current_user.id, 
-                                            page=page or 1)
+                                            page=page or 1,
+                                            file=file or 0,
+                                            version=str(time.time()))
     else:
         return redirect(get_auth_flow().start())    
 
@@ -501,14 +505,6 @@ def save():
     # Only return the newly added tags to add to the client-side 
     # autocompletion array (others will already be present)
     return jsonify({ "newtags": newtags })
-
-
-@app.route("/file/<int:id>")
-@login_required
-def viewer(id):
-    db = get_db()
-    row = db.execute("SELECT id, path, sharekey FROM files WHERE id = ? AND user_id = ?", [id, current_user.id]).fetchone()
-    return render_template("viewer.html", file=row)
 
 
 @app.route("/dropbox-auth-finish")

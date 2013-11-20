@@ -24,7 +24,7 @@
     </form>
     <!-- END METADATA EDIT FORM -->
 
-    <div id="thumbs" />
+    <div id="thumbs"></div>
 
     {% raw %}
     <!-- BEGIN CLIENT TEMPLATES -->
@@ -41,13 +41,19 @@
         <a href="/{{ n }}" data-page="{{ n }}">{{ n }}</a>
     </script>
     <script id="viewer-template" type="text/x-handlebars-template">
-        <div id="large-image-container">
-            <div id="large-image">
-                <img src="https://dl.dropboxusercontent.com/s/{{ sharekey }}/{{ path }}" /></a>
-            </div>
-        </div>
+        <div><img src="https://dl.dropboxusercontent.com/s/{{ sharekey }}/{{ path }}" /></div>
     </script>
     <!-- BEGIN CLIENT TEMPLATES -->
     {% endraw %}
+
+{% endblock %}
+
+{% block viewer %}
+    
+    <div id="overlay"></div>
+
+    <div id="large-image-container">
+        <div id="large-image"></div>
+    </div>
 
 {% endblock %}
