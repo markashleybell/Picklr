@@ -387,6 +387,12 @@ p {
     padding: 1em 0;
 }
 
+.clearfix:after, .tagit:after, #tag-editor:after {
+    content: "";
+    display: table;
+    clear: both;
+}
+
 #thumbs {
     width: 100%;
 }
@@ -481,6 +487,10 @@ p {
     display: block;
 }
 
+#status-message {
+    padding-left: 20px;
+}
+
 .info {
     color: #008F13;
     font-weight: bold;
@@ -489,4 +499,18 @@ p {
 .error {
     color: #cc0000;
     font-weight: bold;
+}
+
+.tagit {
+    margin: 0;
+    width: 50%;
+    float: left;
+}
+
+#paging {
+    clear: left;
+}
+
+#tag-editor-controls {
+    clear: left;
 }

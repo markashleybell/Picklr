@@ -432,6 +432,14 @@ p {
     border-radius: $radius;
 }
 
+.clearfix {
+    &:after {
+        content: "";
+        display: table;
+        clear: both;
+    }
+}
+
 $thumb-size: 140px;
 
 #thumbs {
@@ -534,6 +542,10 @@ $thumb-size: 140px;
     }
 }
 
+#status-message {
+    padding-left: 20px;
+}
+
 .info {
     color: #008F13;
     font-weight: bold;
@@ -544,3 +556,21 @@ $thumb-size: 140px;
     font-weight: bold;
 }
 
+.tagit {
+    margin: 0;
+    width: 50%;
+    float: left;
+    @extend .clearfix;
+}
+
+#paging {
+    clear: left;
+}
+
+#tag-editor-controls {
+    clear: left;
+}
+
+#tag-editor {
+    @extend .clearfix;
+}

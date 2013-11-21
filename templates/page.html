@@ -8,7 +8,7 @@
 
     <form id="tag-filter" action="" method="get">
         <input type="text" id="query" name="query" value="" /> 
-        <input type="submit" value="Go" />
+        <input type="submit" value="Go" class="ui-button ui-widget ui-state-default ui-corner-all" />
     </form>
 
     <div id="paging">
@@ -23,10 +23,12 @@
         <input type="hidden" id="fileid" name="fileid" value="0" />
         <input type="hidden" id="page" name="page" value="{{ page }}" />
         <input id="tags" name="tags" type="text" value="" />
-        <input id="description" name="description" type="text" value="" />
-        <input type="submit" value="Save" /> 
-        <input type="button" id="cancel-edit" value="Cancel" /> 
-        <input type="button" id="refetch-thumbnail" value="Re-fetch Thumbnail" />
+        <div id="tag-editor-controls">
+            <input id="description" name="description" type="text" value="" />
+            <input type="submit" value="Save" /> 
+            <input type="button" id="cancel-edit" value="Cancel" /> 
+            <input type="button" id="refetch-thumbnail" value="Re-fetch Thumbnail" />
+        </div>
     </form>
     <!-- END METADATA EDIT FORM -->
 
