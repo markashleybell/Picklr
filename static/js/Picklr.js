@@ -20,9 +20,12 @@ var Picklr = (function($, Handlebars, History) {
         queryInput: null,
         metaDataForm: null,
         filterForm: null,
-        status: null,
+        statusMessage: null,
         thumbs: null,
-        paging: null,
+        pagingInfo: null,
+        pagingPages: null,
+        pagingPrev: null,
+        pagingNext: null,
         syncNow: null, 
         viewer: null,
         viewerContainer: null,
@@ -32,17 +35,21 @@ var Picklr = (function($, Handlebars, History) {
     // Cached templates
     var _template = {
         thumb: null,
-        status: null,
-        paging: null,
-        viewer: null
+        pagingInfo: null,
+        pagingPage: null,
+        pagingPrev: null,
+        pagingNext: null,
+        viewer: null,
+        infoMessage: null,
+        errorMessage: null
     };
     // Display an informational status
     var _showInfo = function(msg) {
-        _ui.status.html('<span class="info">INFO: ' + msg + '</span>');
+        _ui.statusMessage.html(_template.infoMessage({ 'message': msg }));
     };
     // Display an error status
     var _showError = function(msg) {
-        _ui.status.html('<span class="error">ERROR: ' + msg + '</span>');
+        _ui.statusMessage.html(_template.errorMessage({ 'message': msg }));
     };
     // Load a page of files
     var _load = function(page, query, callback) {
@@ -69,9 +76,13 @@ var Picklr = (function($, Handlebars, History) {
             // Empty the output array
             output.length = 0;
             // Create the paging nav
+            _ui.pagingInfo.html(_template.pagingInfo(data));
             for(var i = 1; i <= data.total_pages; i ++) 
-                output.push(_template.paging({ "n": i }));
-            _ui.paging.html(_template.status(data) + ' &nbsp; ' + output.join('|'));
+                output.push(_template.pagingPage({ "n": i }));
+            _ui.pagingPages.html(output.join('|'));
+            // Prev/next links
+            _ui.pagingPrev.html((data.page > 1) ? _template.pagingPrev({ 'n': (page - 1) }) : '');
+            _ui.pagingNext.html((data.page < data.total_pages) ? _template.pagingNext({ 'n': (page + 1) }) : '');
             // Populate the status bar
             _showInfo('Ready.');
             // If a callback function has been passed in, call it
@@ -189,9 +200,12 @@ var Picklr = (function($, Handlebars, History) {
             _ui.queryInput = $('#query');
             _ui.metaDataForm = $('#tag-editor');
             _ui.filterForm = $('#tag-filter');
-            _ui.status = $('#status');
+            _ui.statusMessage = $('#status-message');
             _ui.thumbs = $('#thumbs');
-            _ui.paging = $('#paging');
+            _ui.pagingInfo = $('#paging-info');
+            _ui.pagingPages = $('#paging-pages');
+            _ui.pagingPrev = $('#paging-prev');
+            _ui.pagingNext = $('#paging-next');
             _ui.syncNow = $('#sync-now');
             _ui.overlay = $('#overlay');
             _ui.viewer = $('#large-image');
@@ -199,9 +213,13 @@ var Picklr = (function($, Handlebars, History) {
             _ui.mainContainer = $('#container');
             // Compile templates
             _template.thumb = Handlebars.compile($('#thumb-template').html());
-            _template.status = Handlebars.compile($('#status-template').html());
-            _template.paging = Handlebars.compile($('#paging-template').html());
+            _template.pagingInfo = Handlebars.compile($('#paging-info-template').html());
+            _template.pagingPage = Handlebars.compile($('#paging-pages-template').html());
+            _template.pagingPrev = Handlebars.compile($('#paging-prev-template').html());
+            _template.pagingNext = Handlebars.compile($('#paging-next-template').html());
             _template.viewer = Handlebars.compile($('#viewer-template').html());
+            _template.infoMessage = Handlebars.compile($('#status-message-info-template').html());
+            _template.errorMessage = Handlebars.compile($('#status-message-info-template').html());
             // Set up tag autocomplete on the tag edit field
             _ui.tagInput.tagit({
                 singleFieldDelimiter: '|',
@@ -243,13 +261,19 @@ var Picklr = (function($, Handlebars, History) {
                 var id = parseInt($(this).data('fileid'), 10);
                 History.pushState({ page: null, image: id }, 'Image ' + id, '/file/' + id);
             });
-            // Handle click on a page number link
-            _ui.paging.on('click', 'a', function(e) {
+            // Load a page of results and push to history stack
+            var _loadPage = function(e) {
                 e.preventDefault();
                 e.stopPropagation();
                 var page = parseInt($(this).data('page'), 10);
                 History.pushState({ page: page, image: null }, 'Page ' + page, '/' + page);
-            });
+            };
+            // Handle click on a page number link
+            _ui.pagingPages.on('click', 'a', _loadPage);
+            // Handle previous page link click
+            _ui.pagingPrev.on('click', 'a', _loadPage);
+            // Handle previous page link click
+            _ui.pagingNext.on('click', 'a', _loadPage);
             // Handle sync button click
             _ui.syncNow.on('click', function(e) {
                 e.preventDefault();
@@ -257,7 +281,7 @@ var Picklr = (function($, Handlebars, History) {
                 _sync();
             });
             // Handle reload link click
-            _ui.status.on('click', '#reload', function(e) {
+            _ui.statusMessage.on('click', '#reload', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
                 _load(_globals.page, _ui.queryInput.val());

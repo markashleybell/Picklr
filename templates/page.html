@@ -1,16 +1,22 @@
 {% extends "layout.html" %}
 {% block body %}
 
-    <p id="auth">User {{ user_id }} - <a href="/" id="sync-now">Sync Now</a> - <a href="{{ url_for('dropbox_unlink') }}" method="post">Unlink from Dropbox and Log Out</a></p>
-
-    <p id="status"></p>
+    <div id="status">
+        <span id="status-auth">User {{ user_id }} - <a href="/" id="sync-now">Sync Now</a> - <a href="{{ url_for('dropbox_unlink') }}" method="post">Unlink from Dropbox and Log Out</a></span>
+        <span id="status-message"></span>    
+    </div>        
 
     <form id="tag-filter" action="" method="get">
         <input type="text" id="query" name="query" value="" /> 
         <input type="submit" value="Go" />
     </form>
 
-    <p id="paging"></p>
+    <div id="paging">
+        <span id="paging-info"></span>
+        <span id="paging-prev"></span>
+        <span id="paging-pages"></span>
+        <span id="paging-next"></span>
+    </div>
 
     <!-- BEGIN METADATA EDIT FORM -->
     <form id="tag-editor" action="{{ url_for('save') }}" method="post">
@@ -34,14 +40,26 @@
             <a class="view-large" href="/file/{{ id }}" data-fileid="{{ id }}" data-sharekey="{{ sharekey }}" data-path="{{ path }}"><img src="/static/img/thumbs/{{ id }}.jpg" alt="Added {{ date_added }}" /></a>
         </div>
     </script>
-    <script id="status-template" type="text/x-handlebars-template">
+    <script id="paging-info-template" type="text/x-handlebars-template">
         <span>Page: {{ page }}, Pages: {{ total_pages }}, Files: {{ total_files }}</span>
     </script>
-    <script id="paging-template" type="text/x-handlebars-template">
+    <script id="paging-prev-template" type="text/x-handlebars-template">
+        <span>&laquo; <a href="/{{ n }}" data-page="{{ n }}">Prev</a></span>
+    </script>
+    <script id="paging-next-template" type="text/x-handlebars-template">
+        <span><a href="/{{ n }}" data-page="{{ n }}">Next</a> &raquo;</span>
+    </script>
+    <script id="paging-pages-template" type="text/x-handlebars-template">
         <a href="/{{ n }}" data-page="{{ n }}">{{ n }}</a>
     </script>
     <script id="viewer-template" type="text/x-handlebars-template">
         <div><img src="https://dl.dropboxusercontent.com/s/{{ sharekey }}/{{ path }}" /></div>
+    </script>
+    <script id="status-message-info-template" type="text/x-handlebars-template">
+        <span class="info">INFO: {{ message }}</span>
+    </script>
+    <script id="status-message-error-template" type="text/x-handlebars-template">
+        <span class="error">ERROR: {{ message }}</span>
     </script>
     <!-- BEGIN CLIENT TEMPLATES -->
     {% endraw %}
