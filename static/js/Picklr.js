@@ -87,7 +87,7 @@ var Picklr = (function($, Handlebars, History) {
             'sharekey': link.data('sharekey'),
             'path': link.data('path')
         });
-        _ui.mainContainer.hide();
+        //_ui.mainContainer.hide();
         _ui.overlay.show();
         _ui.viewer.html(html);
         _ui.viewerContainer.show();
@@ -97,7 +97,7 @@ var Picklr = (function($, Handlebars, History) {
     var _hideViewer = function() {
         _ui.overlay.hide();
         _ui.viewerContainer.hide();
-        _ui.mainContainer.show();
+        //_ui.mainContainer.show();
     };
     // Synchronise with Dropbox
     var _sync = function() {
@@ -313,7 +313,7 @@ var Picklr = (function($, Handlebars, History) {
                 var state = History.getState(); 
                 History.debug('statechange:', state.data, state.title, state.url);
                 _hideViewer();
-                _ui.mainContainer.show();
+                //_ui.mainContainer.show();
 
                 if(state.title === '') {
                     _load(1, _ui.queryInput.val());
