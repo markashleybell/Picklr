@@ -574,3 +574,23 @@ $thumb-size: 140px;
 #tag-editor {
     @extend .clearfix;
 }
+
+#viewer-prev, #viewer-next {
+    background-color: #ff0000;
+    position: absolute;
+    top: 50%;
+    margin-top: -50px;
+    a { 
+        display: block;
+        padding: 40px;
+    }
+    display: none;
+}
+
+#viewer-prev {
+    left: 0;
+}
+
+#viewer-next {
+    right: 0;
+}

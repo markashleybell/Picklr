@@ -10,7 +10,8 @@ var Picklr = (function($, Handlebars, History) {
         tags: [],
         syncing: false, 
         timer: null,
-        ids: []
+        ids: [],
+        index: null
     };
     // Cached UI elements
     var _ui = {
@@ -30,7 +31,9 @@ var Picklr = (function($, Handlebars, History) {
         viewer: null,
         viewerContainer: null,
         overlay: null,
-        mainContainer: null
+        mainContainer: null,
+        viewerPrev: null,
+        viewerNext: null
     };
     // Cached templates
     var _template = {
@@ -53,7 +56,6 @@ var Picklr = (function($, Handlebars, History) {
     };
     // Load a page of files
     var _load = function(page, query, callback) {
-        _hideViewer();
         $.ajax({
             url: '/load/' + page + (($.trim(query) === '') ? '' : '?query=' + query),
             cache: false,
@@ -93,6 +95,7 @@ var Picklr = (function($, Handlebars, History) {
         });
     };
     var _view = function(id) {
+        _globals.index = $.inArray(id, _globals.ids);
         var link = $('#i-' + id + ' a.view-large').first();
         var html = _template.viewer({ 
             'sharekey': link.data('sharekey'),
@@ -102,12 +105,16 @@ var Picklr = (function($, Handlebars, History) {
         _ui.overlay.show();
         _ui.viewer.html(html);
         _ui.viewerContainer.show();
+        _ui.viewerPrev.show();
+        _ui.viewerNext.show();
         // TODO: Set the height of the overlay AFTER the image has loaded
         // _ui.overlay.height($(document).height());
     };
     var _hideViewer = function() {
         _ui.overlay.hide();
         _ui.viewerContainer.hide();
+        _ui.viewerPrev.hide();
+        _ui.viewerNext.hide();
         //_ui.mainContainer.show();
     };
     // Synchronise with Dropbox
@@ -211,6 +218,8 @@ var Picklr = (function($, Handlebars, History) {
             _ui.viewer = $('#large-image');
             _ui.viewerContainer = $('#large-image-container');
             _ui.mainContainer = $('#container');
+            _ui.viewerPrev = $('#viewer-prev');
+            _ui.viewerNext = $('#viewer-next');
             // Compile templates
             _template.thumb = Handlebars.compile($('#thumb-template').html());
             _template.pagingInfo = Handlebars.compile($('#paging-info-template').html());
@@ -309,6 +318,44 @@ var Picklr = (function($, Handlebars, History) {
                 e.stopPropagation();
                 var pageId = _globals.page;
                 History.pushState({ page: pageId, image: null }, 'Page ' + pageId, '/' + pageId);
+            });
+            // Handle viewer previous button click
+            _ui.viewerPrev.on('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                _globals.index--;
+                if(_globals.index == -1) {
+                    // Load the previous page and reset the index
+                    // TODO: This messes up history, any way around it?
+                    _globals.page--;
+                    _globals.index = (_globals.ids.length - 1);
+                    _load(_globals.page, _ui.queryInput.val(), function() {
+                        var id = _globals.ids[_globals.index];
+                        History.pushState({ page: null, image: id }, 'Image ' + id, '/file/' + id);
+                    });
+                } else {
+                    var id = _globals.ids[_globals.index];
+                    History.pushState({ page: null, image: id }, 'Image ' + id, '/file/' + id);
+                }
+            });
+            // Handle viewer next button click
+            _ui.viewerNext.on('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                _globals.index++;
+                if(_globals.index == _globals.ids.length) {
+                    // Load the next page and reset the index
+                    // TODO: This messes up history, any way around it?
+                    _globals.page++;
+                    _globals.index = 0;
+                    _load(_globals.page, _ui.queryInput.val(), function() {
+                        var id = _globals.ids[_globals.index];
+                        History.pushState({ page: null, image: id }, 'Image ' + id, '/file/' + id);
+                    });
+                } else {
+                    var id = _globals.ids[_globals.index];
+                    History.pushState({ page: null, image: id }, 'Image ' + id, '/file/' + id);
+                }
             });
             // Handle cancel button click
             $('#cancel-edit').on('click', function(e) {

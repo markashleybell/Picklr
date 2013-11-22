@@ -514,3 +514,23 @@ p {
 #tag-editor-controls {
     clear: left;
 }
+
+#viewer-prev, #viewer-next {
+    background-color: #ff0000;
+    position: absolute;
+    top: 50%;
+    margin-top: -50px;
+    display: none;
+}
+#viewer-prev a, #viewer-next a {
+    display: block;
+    padding: 40px;
+}
+
+#viewer-prev {
+    left: 0;
+}
+
+#viewer-next {
+    right: 0;
+}
