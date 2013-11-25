@@ -555,6 +555,35 @@ def dropbox_unlink():
     return redirect(url_for("page"))
 
 
+@app.route("/image-array")
+@login_required
+def image_array():
+    db = get_db()
+    sql = """
+          SELECT 
+              id, 
+              path, 
+              sharekey
+          FROM
+              files
+          WHERE
+              user_id = ?
+          ORDER BY 
+              date_added DESC
+          """
+    cursor = db.cursor()
+    # Get all results and return them as a dictionary with column names as keys
+    rows = cursor.execute(sql, [current_user.id]).fetchall()
+    # cols = [d[0] for d in cursor.description]
+    # dict_rows = []
+    # for row in rows:
+    #     dict_rows.append(dict(zip(cols, row)))
+    # return jsonify({ "results": dict_rows })
+    dict_rows = []
+    items = { int(row["id"]) : [row["path"], row["sharekey"]] for row in rows }
+    return jsonify(items)
+
+
 def main():
     init_db()
     app.run(threaded=True)

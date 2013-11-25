@@ -11,7 +11,8 @@ var Picklr = (function($, Handlebars, History) {
         syncing: false, 
         timer: null,
         ids: [],
-        index: null
+        index: null,
+        imageData: []
     };
     // Cached UI elements
     var _ui = {
@@ -406,6 +407,18 @@ var Picklr = (function($, Handlebars, History) {
             _load(_globals.page, _ui.queryInput.val(), callback);            
         },
         globals: _globals,
-        ui: _ui
+        ui: _ui,
+        loadImageArray: function() {
+            $.ajax({
+                url: '/image-array',
+                cache: false,
+                type: 'GET',
+                dataType: 'json',
+            }).done(function(data) {
+                _globals.imageData = data.results;               
+            }).fail(function(request, status, error) {
+                _showError(error);
+            });
+        }
     }
 }(jQuery, Handlebars, History));
