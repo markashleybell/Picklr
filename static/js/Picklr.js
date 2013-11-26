@@ -438,11 +438,17 @@ var Picklr = (function($, Handlebars, History) {
                     }
                 }
             });
-            // If we've got a file ID, load the viewer, then sync 
-            // in the background, otherwise just sync straight away
-            // var callback = (file > 0) ? function() { _view(file); _sync(); } : _sync;
-            // Initially load the first page and kick off our callback
-            _loadFiles(_globals.page);
+            // If we've got a file ID
+            if(file > 0) {
+                // Figure out which page the file is on 
+                // var filePage = 0;
+                // for(var i=0; i<_globals
+                _loadFiles(1, function() { 
+                    _view(file); 
+                });
+            } else {
+                _loadFiles(_globals.page);
+            }
             _loadTags(_sync);
         },
         globals: _globals,
