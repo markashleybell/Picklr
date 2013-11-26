@@ -113,6 +113,21 @@ var Picklr = (function($, Handlebars, History) {
         _ui.pagingPrev.html(_template.pagingPrev({ 'n': ((_globals.page > 1) ? (_globals.page - 1) : 0) }));
         _ui.pagingNext.html(_template.pagingNext({ 'n': ((_globals.page < totalPages) ? (_globals.page + 1) : 0) }));
     };
+    var _search = function(query, callback) {
+        $.ajax({
+            url: '/search?q=' + query,
+            cache: false,
+            type: 'GET',
+            dataType: 'json',
+        }).done(function(data) {
+            
+            // If a callback function has been passed in, call it
+            if(typeof callback === 'function')
+                callback();         
+        }).fail(function(request, status, error) {
+            _showError(error);
+        });
+    };
     var _loadFiles = function(callback) {
         $.ajax({
             url: '/load-files',
@@ -348,7 +363,7 @@ var Picklr = (function($, Handlebars, History) {
             _ui.statusMessage.on('click', '#reload', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
-                _load(_globals.page, _ui.queryInput.val());
+                alert('TODO: reload global data array at this point!');
             });
             // Handle edit form submit
             _ui.metaDataForm.on('submit', function(e) {
@@ -365,7 +380,7 @@ var Picklr = (function($, Handlebars, History) {
                 _ui.metaDataForm.hide();
                 _ui.thumbs.find('div').removeClass('selected');
                 _globals.page = 1;
-                _load(_globals.page, _ui.queryInput.val());
+                _search(_ui.queryInput.val());
             });
             // Handle cancel button click
             _ui.viewerContainer.on('click', function(e) {

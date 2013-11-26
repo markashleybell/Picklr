@@ -121,156 +121,6 @@ def get_db_file_count(db, user_id):
     return None if row is None else row[0]
 
 
-def get_db_files(db, user_id, pagesize, page, query=None):
-    """Get a user's file records from the db, with paging"""
-    paging_sql = """
-                 SELECT
-                     f1.id,
-                     f1.path,
-                     f1.sharekey,
-                     f1.date_added,
-                     f1.description,
-                     f1.tags,
-                     (
-                         SELECT
-                             COUNT(*)
-                         FROM
-                             files f3
-                         WHERE
-                             f3.user_id = ?
-                     ) as total_records
-                 FROM
-                     files f1
-                 WHERE
-                     f1.user_id = ?
-                 AND
-                     f1.id NOT IN (
-                         SELECT
-                             f2.id
-                         FROM
-                             files f2
-                         WHERE
-                             f2.user_id = ?
-                         ORDER BY
-                             f2.date_added DESC
-                         LIMIT
-                             ? -- Start at
-                     )
-                 ORDER BY
-                     f1.date_added DESC
-                 LIMIT
-                     ? -- Page Size
-                 """
-
-    search_paging_sql = """
-                        SELECT
-                            f1.id,
-                            f1.path,
-                            f1.sharekey,
-                            f1.date_added,
-                            f1.description,
-                            f1.tags,
-                            (
-                                SELECT 
-                                    COUNT(*) 
-                                FROM (
-                                    SELECT
-                                        f3.sharekey
-                                    FROM
-                                        files f3, 
-                                        tags_files m3, 
-                                        tags t3
-                                    WHERE
-                                        f3.user_id = ?
-                                    AND
-                                        m3.tag_id = t3.id
-                                    AND
-                                        (t3.tag IN ({0}))
-                                    AND
-                                        f3.id = m3.file_id
-                                    GROUP BY
-                                        f3.id
-                                    HAVING
-                                        COUNT(f3.id) = {1}
-                                )
-                          ) as total_records
-                        FROM
-                            files f1, tags_files m1, tags t1
-                        WHERE
-                            f1.user_id = ?
-                        AND
-                            m1.tag_id = t1.id
-                        AND
-                            (t1.tag IN ({0}))
-                        AND
-                            f1.id = m1.file_id
-                        AND
-                            f1.id NOT IN (
-                                SELECT
-                                    f2.id
-                                FROM
-                                    files f2, 
-                                    tags_files m2, 
-                                    tags t2
-                                WHERE
-                                    f2.user_id = ?
-                                AND
-                                    m2.tag_id = t2.id
-                                AND
-                                    (t2.tag IN ({0}))
-                                AND
-                                    f2.id = m2.file_id
-                                GROUP BY
-                                    f2.id
-                                HAVING
-                                    COUNT(f2.id) = {1}
-                                ORDER BY
-                                    f2.date_added DESC
-                                LIMIT
-                                    ? -- Start at
-                            )
-                        GROUP BY
-                            f1.id
-                        HAVING
-                            COUNT(f1.id) = {1}
-                        ORDER BY
-                            f1.date_added DESC
-                        LIMIT
-                            ? -- Page Size
-                        """
-
-    start_at = (page - 1) * pagesize
-    cursor = db.cursor()
-
-    if query is None:
-        sql = paging_sql
-        params = [user_id, user_id, user_id, start_at, pagesize]
-    else:
-        # Try and tidy up the tag query terms a bit
-        query_terms = [s.lower().strip() for s in query.split('|') if s.strip() is not '']
-        # Create parameter placeholders for IN clauses
-        in_list = ','.join('?' for s in query_terms)
-        # Subsitute the placeholders in the SQL string with the correct values
-        sql = search_paging_sql.format(in_list, len(query_terms))
-        # Slightly unwieldy, but safe way of supplying the param list
-        params = [user_id]
-        params.extend(query_terms)
-        params.append(user_id)
-        params.extend(query_terms)
-        params.append(user_id)
-        params.extend(query_terms)
-        params.append(start_at)
-        params.append(pagesize)
-
-    # Get all results and return them as a dictionary with column names as keys
-    rows = cursor.execute(sql, params).fetchall()
-    cols = [d[0] for d in cursor.description]
-    dict_rows = []
-    for row in rows:
-        dict_rows.append(dict(zip(cols, row)))
-    return dict_rows
-
-
 @app.route("/load-tags")
 @api_login_required
 def load_tags():
@@ -283,14 +133,13 @@ def load_tags():
     else:
         abort(403)
 
+
 @app.route("/load-files")
 @api_login_required
 def load_files():
     db = get_db()
     access_token = get_db_access_token(db, current_user.id)
     if access_token is not None:
-        query = request.args.get("q")
-        
         """Get a user's file records from the db"""
         paging_sql = """
                      SELECT
@@ -305,44 +154,9 @@ def load_files():
                          f1.date_added DESC
                      """
 
-        search_paging_sql = """
-                            SELECT
-                                f1.id,
-                                f1.path,
-                                f1.sharekey
-                            FROM
-                                files f1, tags_files m1, tags t1
-                            WHERE
-                                f1.user_id = ?
-                            AND
-                                m1.tag_id = t1.id
-                            AND
-                                (t1.tag IN ({0}))
-                            AND
-                                f1.id = m1.file_id
-                            GROUP BY
-                                f1.id
-                            HAVING
-                                COUNT(f1.id) = {1}
-                            ORDER BY
-                                f1.date_added DESC
-                            """
-
         cursor = db.cursor()
-
-        if query is None:
-            sql = paging_sql
-            params = [current_user.id]
-        else:
-            # Try and tidy up the tag query terms a bit
-            query_terms = [s.lower().strip() for s in query.split('|') if s.strip() is not '']
-            # Create parameter placeholders for IN clauses
-            in_list = ','.join('?' for s in query_terms)
-            # Subsitute the placeholders in the SQL string with the correct values
-            sql = search_paging_sql.format(in_list, len(query_terms))
-            # Slightly unwieldy, but safe way of supplying the param list
-            params = [current_user.id]
-            params.extend(query_terms)
+        sql = paging_sql
+        params = [current_user.id]
 
         # Get all results and return them as a dictionary with column names as keys
         rows = cursor.execute(sql, params).fetchall()
@@ -413,6 +227,55 @@ def load_files():
         abort(403)
 
 
+@app.route("/search")
+@api_login_required
+def search():
+    db = get_db()
+    access_token = get_db_access_token(db, current_user.id)
+    if access_token is not None:
+        query = request.args.get("q")
+        search_paging_sql = """
+                            SELECT
+                                f1.id
+                            FROM
+                                files f1, tags_files m1, tags t1
+                            WHERE
+                                f1.user_id = ?
+                            AND
+                                m1.tag_id = t1.id
+                            AND
+                                (t1.tag IN ({0}))
+                            AND
+                                f1.id = m1.file_id
+                            GROUP BY
+                                f1.id
+                            HAVING
+                                COUNT(f1.id) = {1}
+                            ORDER BY
+                                f1.date_added DESC
+                            """
+
+        cursor = db.cursor()
+
+        # Try and tidy up the tag query terms a bit
+        query_terms = [s.lower().strip() for s in query.split('|') if s.strip() is not '']
+        # Create parameter placeholders for IN clauses
+        in_list = ','.join('?' for s in query_terms)
+        # Subsitute the placeholders in the SQL string with the correct values
+        sql = search_paging_sql.format(in_list, len(query_terms))
+        # Slightly unwieldy, but safe way of supplying the param list
+        params = [current_user.id]
+        params.extend(query_terms)
+
+        # Get all results and return them as a dictionary with column names as keys
+        rows = cursor.execute(sql, params).fetchall()
+
+        items = [ int(row["id"]) for row in rows ]
+        return jsonify({ "results": items })
+    else:
+        abort(403)
+
+
 def get_db_tags(db, user_id):
     """Get a user's tags from the db"""
     return db.execute("SELECT tag FROM tags WHERE user_id = ?", [user_id]).fetchall()
@@ -432,40 +295,6 @@ def page(page=None, file=None):
                                             version=str(time.time()))
     else:
         return redirect(get_auth_flow().start())    
-
-
-# @app.route("/load/<int:page>")
-# @api_login_required
-# def load(page):
-#     db = get_db()
-#     access_token = get_db_access_token(db, current_user.id)
-#     if access_token is not None:
-#         # Now fetch the files from the DB and pass them to the view
-#         query = request.args.get('query')
-#         dbfiles = get_db_files(db, current_user.id, pagesize, page, query)
-
-#         # Get paging info
-#         total_files = dbfiles[0]["total_records"] if len(dbfiles) is not 0 else 0
-#         total_pages = total_files / pagesize
-#         if total_files % pagesize is not 0:
-#             total_pages += 1
-
-#         # Get the tags for this user so we can set up autocompletion
-#         tags = get_db_tags(db, current_user.id)
-#         tagstring = "|".join([tag[0] for tag in tags])
-        
-#         # URLencode all the filenames which will get written out as data attributes
-#         # TODO: Is there a tidier way to do this?
-#         for f in dbfiles:
-#             f['path'] = urllib2.quote(f['path'].encode("utf8"))
-
-#         return jsonify({ "files": dbfiles, 
-#                          "page": page, 
-#                          "total_pages": total_pages, 
-#                          "total_files": total_files, 
-#                          "tags": tagstring })
-#     else:
-#         abort(403) 
 
 
 @app.route("/sync")
