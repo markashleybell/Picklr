@@ -38,12 +38,12 @@
     <!-- BEGIN CLIENT TEMPLATES -->
     <script id="thumb-template" type="text/x-handlebars-template">
         <div id="i-{{ id }}">
-            <a class="edit-tags" href="/file/{{ id }}" data-fileid="{{ id }}" data-tags="{{ tags }}" data-description="{{ description }}">E</a>
-            <a class="view-large" href="/file/{{ id }}" data-fileid="{{ id }}" data-sharekey="{{ sharekey }}" data-path="{{ path }}"><img src="/static/img/thumbs/{{ id }}.jpg" alt="Added {{ date_added }}" /></a>
+            <a class="edit-tags" href="/file/{{ id }}" data-fileid="{{ id }}">E</a>
+            <a class="view-large" href="/file/{{ id }}" data-fileid="{{ id }}"><img src="/static/img/thumbs/{{ id }}.jpg" /></a>
         </div>
     </script>
     <script id="paging-info-template" type="text/x-handlebars-template">
-        <span>Page: {{ page }}, Pages: {{ total_pages }}, Files: {{ total_files }}</span>
+        <span>Page: {{ currentPage }}, Pages: {{ totalPages }}, Files: {{ totalFiles }}</span>
     </script>
     <script id="paging-prev-template" type="text/x-handlebars-template">
         <span>&laquo; <a href="/{{ n }}" data-page="{{ n }}">Prev</a></span>
@@ -55,7 +55,7 @@
         <a href="/{{ n }}" data-page="{{ n }}">{{ n }}</a>
     </script>
     <script id="viewer-template" type="text/x-handlebars-template">
-        <div><img src="https://dl.dropboxusercontent.com/s/{{ sharekey }}/{{ path }}" /></div>
+        <div><img src="https://dl.dropboxusercontent.com/s/{{ path }}" /></div>
     </script>
     <script id="status-message-info-template" type="text/x-handlebars-template">
         <span class="info">INFO: {{ message }}</span>

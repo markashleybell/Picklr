@@ -271,6 +271,148 @@ def get_db_files(db, user_id, pagesize, page, query=None):
     return dict_rows
 
 
+@app.route("/load-tags")
+@api_login_required
+def load_tags():
+    db = get_db()
+    access_token = get_db_access_token(db, current_user.id)
+    if access_token is not None:
+        # Get the tags for this user so we can set up autocompletion
+        tags = get_db_tags(db, current_user.id)
+        return jsonify({ "tags": "|".join([tag[0] for tag in tags]) })
+    else:
+        abort(403)
+
+@app.route("/load-files")
+@api_login_required
+def load_files():
+    db = get_db()
+    access_token = get_db_access_token(db, current_user.id)
+    if access_token is not None:
+        query = request.args.get("q")
+        
+        """Get a user's file records from the db"""
+        paging_sql = """
+                     SELECT
+                         f1.id,
+                         f1.path,
+                         f1.sharekey
+                     FROM
+                         files f1
+                     WHERE
+                         f1.user_id = ?
+                     ORDER BY
+                         f1.date_added DESC
+                     """
+
+        search_paging_sql = """
+                            SELECT
+                                f1.id,
+                                f1.path,
+                                f1.sharekey
+                            FROM
+                                files f1, tags_files m1, tags t1
+                            WHERE
+                                f1.user_id = ?
+                            AND
+                                m1.tag_id = t1.id
+                            AND
+                                (t1.tag IN ({0}))
+                            AND
+                                f1.id = m1.file_id
+                            GROUP BY
+                                f1.id
+                            HAVING
+                                COUNT(f1.id) = {1}
+                            ORDER BY
+                                f1.date_added DESC
+                            """
+
+        cursor = db.cursor()
+
+        if query is None:
+            sql = paging_sql
+            params = [current_user.id]
+        else:
+            # Try and tidy up the tag query terms a bit
+            query_terms = [s.lower().strip() for s in query.split('|') if s.strip() is not '']
+            # Create parameter placeholders for IN clauses
+            in_list = ','.join('?' for s in query_terms)
+            # Subsitute the placeholders in the SQL string with the correct values
+            sql = search_paging_sql.format(in_list, len(query_terms))
+            # Slightly unwieldy, but safe way of supplying the param list
+            params = [current_user.id]
+            params.extend(query_terms)
+
+        # Get all results and return them as a dictionary with column names as keys
+        rows = cursor.execute(sql, params).fetchall()
+        
+        rows2 = []
+        rows2.extend(rows)
+        rows2.extend(rows)
+        rows2.extend(rows)
+        rows2.extend(rows)
+        rows2.extend(rows)
+        rows2.extend(rows)
+        rows2.extend(rows)
+        rows2.extend(rows)
+        rows2.extend(rows)
+        rows2.extend(rows)
+        rows2.extend(rows)
+        rows2.extend(rows)
+        rows2.extend(rows)
+        rows2.extend(rows)
+        rows2.extend(rows)
+        rows2.extend(rows)
+        rows2.extend(rows)
+        rows2.extend(rows)
+        rows2.extend(rows)
+        rows2.extend(rows)
+        rows2.extend(rows)
+        rows2.extend(rows)
+        rows2.extend(rows)
+        rows2.extend(rows)
+        rows2.extend(rows)
+        rows2.extend(rows)
+        rows2.extend(rows)
+        rows2.extend(rows)
+        rows2.extend(rows)
+        rows2.extend(rows)
+        rows2.extend(rows)
+        rows2.extend(rows)
+        rows2.extend(rows)
+        rows2.extend(rows)
+        rows2.extend(rows)
+        rows2.extend(rows)
+        rows2.extend(rows)
+        rows2.extend(rows)
+        rows2.extend(rows)
+        rows2.extend(rows)
+        rows2.extend(rows)
+        rows2.extend(rows)
+        rows2.extend(rows)
+        rows2.extend(rows)
+        rows2.extend(rows)
+        rows2.extend(rows)
+        rows2.extend(rows)
+        rows2.extend(rows)
+        rows2.extend(rows)
+        rows2.extend(rows)
+        rows2.extend(rows)
+        rows2.extend(rows)
+        rows2.extend(rows)
+        rows2.extend(rows)
+        rows2.extend(rows)
+        rows2.extend(rows)
+
+        # print len(rows2)
+
+        items = [ [int(row["id"]), row["sharekey"] + '/' + row["path"]] for row in rows2 ]
+        return jsonify({ "files": items })
+    else:
+        abort(403)
+
+
 def get_db_tags(db, user_id):
     """Get a user's tags from the db"""
     return db.execute("SELECT tag FROM tags WHERE user_id = ?", [user_id]).fetchall()
@@ -292,38 +434,38 @@ def page(page=None, file=None):
         return redirect(get_auth_flow().start())    
 
 
-@app.route("/load/<int:page>")
-@api_login_required
-def load(page):
-    db = get_db()
-    access_token = get_db_access_token(db, current_user.id)
-    if access_token is not None:
-        # Now fetch the files from the DB and pass them to the view
-        query = request.args.get('query')
-        dbfiles = get_db_files(db, current_user.id, pagesize, page, query)
+# @app.route("/load/<int:page>")
+# @api_login_required
+# def load(page):
+#     db = get_db()
+#     access_token = get_db_access_token(db, current_user.id)
+#     if access_token is not None:
+#         # Now fetch the files from the DB and pass them to the view
+#         query = request.args.get('query')
+#         dbfiles = get_db_files(db, current_user.id, pagesize, page, query)
 
-        # Get paging info
-        total_files = dbfiles[0]["total_records"] if len(dbfiles) is not 0 else 0
-        total_pages = total_files / pagesize
-        if total_files % pagesize is not 0:
-            total_pages += 1
+#         # Get paging info
+#         total_files = dbfiles[0]["total_records"] if len(dbfiles) is not 0 else 0
+#         total_pages = total_files / pagesize
+#         if total_files % pagesize is not 0:
+#             total_pages += 1
 
-        # Get the tags for this user so we can set up autocompletion
-        tags = get_db_tags(db, current_user.id)
-        tagstring = "|".join([tag[0] for tag in tags])
+#         # Get the tags for this user so we can set up autocompletion
+#         tags = get_db_tags(db, current_user.id)
+#         tagstring = "|".join([tag[0] for tag in tags])
         
-        # URLencode all the filenames which will get written out as data attributes
-        # TODO: Is there a tidier way to do this?
-        for f in dbfiles:
-            f['path'] = urllib2.quote(f['path'].encode("utf8"))
+#         # URLencode all the filenames which will get written out as data attributes
+#         # TODO: Is there a tidier way to do this?
+#         for f in dbfiles:
+#             f['path'] = urllib2.quote(f['path'].encode("utf8"))
 
-        return jsonify({ "files": dbfiles, 
-                         "page": page, 
-                         "total_pages": total_pages, 
-                         "total_files": total_files, 
-                         "tags": tagstring })
-    else:
-        abort(403) 
+#         return jsonify({ "files": dbfiles, 
+#                          "page": page, 
+#                          "total_pages": total_pages, 
+#                          "total_files": total_files, 
+#                          "tags": tagstring })
+#     else:
+#         abort(403) 
 
 
 @app.route("/sync")
@@ -553,35 +695,6 @@ def dropbox_unlink():
     update_db_access_token(db, current_user.id, None)
     logout_user()
     return redirect(url_for("page"))
-
-
-@app.route("/image-array")
-@login_required
-def image_array():
-    db = get_db()
-    sql = """
-          SELECT 
-              id, 
-              path, 
-              sharekey
-          FROM
-              files
-          WHERE
-              user_id = ?
-          ORDER BY 
-              date_added DESC
-          """
-    cursor = db.cursor()
-    # Get all results and return them as a dictionary with column names as keys
-    rows = cursor.execute(sql, [current_user.id]).fetchall()
-    # cols = [d[0] for d in cursor.description]
-    # dict_rows = []
-    # for row in rows:
-    #     dict_rows.append(dict(zip(cols, row)))
-    # return jsonify({ "results": dict_rows })
-    dict_rows = []
-    items = { int(row["id"]) : [row["path"], row["sharekey"]] for row in rows }
-    return jsonify(items)
 
 
 def main():

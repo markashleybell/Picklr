@@ -1,6 +1,29 @@
+function linearSearch(a, v) {
+    for(var x=0; x<a.length; x++) {
+        if(a[x][0] == v) return x;
+    }
+    return -1; // Value not found
+}
+            
+function binarySearch(a, v) {
+    var high = a.length - 1;
+    var low = 0;
+                    
+    while(low <= high)
+    {
+        mid = parseInt((low + high) / 2);
+        if(a[mid] == v) return mid;
+        else if(a[mid] > v) high = (mid - 1); // Search lower values
+        else if(a[mid] < v) low = (mid + 1); // Search upper values
+    }
+    
+    return -1; // Value not found
+}
+
 var Picklr = (function($, Handlebars, History) {
     // Configuration variables
     var _config = {
+        PAGE_SIZE: 20,
         PROGRESS_POLL_INTERVAL: 3000,
         ENABLE_HISTORY_LOGGING: false
     };
@@ -10,9 +33,8 @@ var Picklr = (function($, Handlebars, History) {
         tags: [],
         syncing: false, 
         timer: null,
-        ids: [],
         index: null,
-        imageData: []
+        data: []
     };
     // Cached UI elements
     var _ui = {
@@ -55,54 +77,86 @@ var Picklr = (function($, Handlebars, History) {
     var _showError = function(msg) {
         _ui.statusMessage.html(_template.errorMessage({ 'message': msg }));
     };
-    // Load a page of files
-    var _load = function(page, query, callback) {
+    var _populatePagination = function(data) {
+        _ui.pagingInfo.html(_template.pagingInfo(data));
+        // Buffer array to efficiently concatenate output HTML
+        var output = [];
+        for(var i = 1; i <= data.totalPages; i ++) 
+            output.push(_template.pagingPage({ "n": i }));
+        _ui.pagingPages.html(output.join('|'));
+    };
+    var _page = function(page) {
+        // Buffer array to efficiently concatenate output HTML
+        var output = [];
+        _globals.page = page;
+        var start = ((_globals.page - 1) * _config.PAGE_SIZE);
+        var end = start + _config.PAGE_SIZE;
+        if(end > _globals.data.length)
+            end = _globals.data.length;
+        // Create the thumbnail display for the first page
+        for(var i=start; i<end; i++) {
+            output.push(_template.thumb({ id: _globals.data[i][0] }));
+        }
+        _ui.thumbs.html(output.join(''));
+        // Create prev/next links
+        var totalPages = Math.ceil(_globals.data.length / _config.PAGE_SIZE);
+        _ui.pagingPrev.html(_template.pagingPrev({ 'n': ((_globals.page > 1) ? (_globals.page - 1) : 0) }));
+        _ui.pagingNext.html(_template.pagingNext({ 'n': ((_globals.page < totalPages) ? (_globals.page + 1) : 0) }));
+    };
+    var _loadTags = function(callback) {
         $.ajax({
-            url: '/load/' + page + (($.trim(query) === '') ? '' : '?query=' + query),
+            url: '/load-tags',
             cache: false,
-            dataType: 'json'
+            type: 'GET',
+            dataType: 'json',
         }).done(function(data) {
             // Refresh the tag array *without reassigning the array*, 
             // otherwise tagit autocomplete stops working...
             _globals.tags.length = 0;
             [].push.apply(_globals.tags, data.tags.split('|'));
-            // Buffer array to efficiently concatenate output HTML
-            var output = [];
-            // Reset the global array of image IDs
-            _globals.ids.length = 0;
-            // Create the thumbnail display
-            $.each(data.files, function(i, item) {
-                output.push(_template.thumb(item));
-                _globals.ids.push(item.id);
-            });
-            _ui.thumbs.html(output.join(''));
-            // Empty the output array
-            output.length = 0;
-            // Create the paging nav
-            _ui.pagingInfo.html(_template.pagingInfo(data));
-            for(var i = 1; i <= data.total_pages; i ++) 
-                output.push(_template.pagingPage({ "n": i }));
-            _ui.pagingPages.html(output.join('|'));
-            // Prev/next links
-            _ui.pagingPrev.html((data.page > 1) ? _template.pagingPrev({ 'n': (page - 1) }) : '');
-            _ui.pagingNext.html((data.page < data.total_pages) ? _template.pagingNext({ 'n': (page + 1) }) : '');
             // Populate the status bar
             _showInfo('Ready.');
             // If a callback function has been passed in, call it
             if(typeof callback === 'function')
-                callback();
+                callback();         
+        }).fail(function(request, status, error) {
+            _showError(error);
+        });
+    };
+    var _loadFiles = function(page, callback) {
+        $.ajax({
+            url: '/load-files',
+            cache: false,
+            type: 'GET',
+            dataType: 'json',
+        }).done(function(data) {
+            // Populate the global data array
+            _globals.data = data.files; 
+            // Create the paging nav
+            var totalFiles = _globals.data.length;
+            var pagingData = {
+                currentPage: page,
+                totalFiles: totalFiles,
+                totalPages: Math.ceil(totalFiles / _config.PAGE_SIZE)
+            };
+            // Populate prev/next links
+            _populatePagination(pagingData);
+            // Load the first page of thumbnails
+            _page(page);
+            // Populate the status bar
+            _showInfo('Ready.');
+            // If a callback function has been passed in, call it
+            if(typeof callback === 'function')
+                callback();         
         }).fail(function(request, status, error) {
             _showError(error);
         });
     };
     var _view = function(id) {
-        _globals.index = $.inArray(id, _globals.ids);
-        var link = $('#i-' + id + ' a.view-large').first();
+        _globals.index = linearSearch(_globals.data, id);
         var html = _template.viewer({ 
-            'sharekey': link.data('sharekey'),
-            'path': link.data('path')
+            'path': _globals.data[_globals.index][1]
         });
-        //_ui.mainContainer.hide();
         _ui.overlay.show();
         _ui.viewer.html(html);
         _ui.viewerContainer.show();
@@ -116,7 +170,6 @@ var Picklr = (function($, Handlebars, History) {
         _ui.viewerContainer.hide();
         _ui.viewerPrev.hide();
         _ui.viewerNext.hide();
-        //_ui.mainContainer.show();
     };
     // Synchronise with Dropbox
     var _sync = function() {
@@ -325,38 +378,24 @@ var Picklr = (function($, Handlebars, History) {
                 e.preventDefault();
                 e.stopPropagation();
                 _globals.index--;
-                if(_globals.index == -1) {
-                    // Load the previous page and reset the index
-                    // TODO: This messes up history, any way around it?
-                    _globals.page--;
-                    _globals.index = (_globals.ids.length - 1);
-                    _load(_globals.page, _ui.queryInput.val(), function() {
-                        var id = _globals.ids[_globals.index];
-                        History.pushState({ page: null, image: id }, 'Image ' + id, '/file/' + id);
-                    });
-                } else {
-                    var id = _globals.ids[_globals.index];
-                    History.pushState({ page: null, image: id }, 'Image ' + id, '/file/' + id);
-                }
+                var id = _globals.data[_globals.index][0];
+                // If the thumbnail of the image we're viewing isn't in the underlying
+                // thumbnail grid, load the previous page in the background
+                if(!$('#i-' + id).length)
+                    _page(_globals.page - 1);
+                History.pushState({ page: null, image: id }, 'Image ' + id, '/file/' + id);
             });
             // Handle viewer next button click
             _ui.viewerNext.on('click', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
                 _globals.index++;
-                if(_globals.index == _globals.ids.length) {
-                    // Load the next page and reset the index
-                    // TODO: This messes up history, any way around it?
-                    _globals.page++;
-                    _globals.index = 0;
-                    _load(_globals.page, _ui.queryInput.val(), function() {
-                        var id = _globals.ids[_globals.index];
-                        History.pushState({ page: null, image: id }, 'Image ' + id, '/file/' + id);
-                    });
-                } else {
-                    var id = _globals.ids[_globals.index];
-                    History.pushState({ page: null, image: id }, 'Image ' + id, '/file/' + id);
-                }
+                var id = _globals.data[_globals.index][0];
+                // If the thumbnail of the image we're viewing isn't in the underlying
+                // thumbnail grid, load the next page in the background
+                if(!$('#i-' + id).length)
+                    _page(_globals.page + 1);
+                History.pushState({ page: null, image: id }, 'Image ' + id, '/file/' + id);
             });
             // Handle cancel button click
             $('#cancel-edit').on('click', function(e) {
@@ -385,16 +424,15 @@ var Picklr = (function($, Handlebars, History) {
                 var state = History.getState(); 
                 History.debug('statechange:', state.data, state.title, state.url);
                 _hideViewer();
-                //_ui.mainContainer.show();
-
                 if(state.title === '') {
-                    _load(1, _ui.queryInput.val());
                     _globals.page = 1;
+                    _page(_globals.page);
                 } else {
                     // If the state contains a page ID, load the page
                     if(state.data.page) {
-                        _load(state.data.page, _ui.queryInput.val());
                         _globals.page = state.data.page;
+                        _page(_globals.page);
+                        
                     } else if(state.data.image) { // If the state contains an image ID, load it
                         _view(state.data.image);
                     }
@@ -402,23 +440,12 @@ var Picklr = (function($, Handlebars, History) {
             });
             // If we've got a file ID, load the viewer, then sync 
             // in the background, otherwise just sync straight away
-            var callback = (file > 0) ? function() { _view(file); _sync(); } : _sync;
+            // var callback = (file > 0) ? function() { _view(file); _sync(); } : _sync;
             // Initially load the first page and kick off our callback
-            _load(_globals.page, _ui.queryInput.val(), callback);            
+            _loadFiles(_globals.page);
+            _loadTags(_sync);
         },
         globals: _globals,
-        ui: _ui,
-        loadImageArray: function() {
-            $.ajax({
-                url: '/image-array',
-                cache: false,
-                type: 'GET',
-                dataType: 'json',
-            }).done(function(data) {
-                _globals.imageData = data.results;               
-            }).fail(function(request, status, error) {
-                _showError(error);
-            });
-        }
+        ui: _ui
     }
 }(jQuery, Handlebars, History));

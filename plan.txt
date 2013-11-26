@@ -1,0 +1,7 @@
+Load all data in to begin with
+Keep the main array intact at all times
+Sync operations can just push onto the end (start) of the data array
+Tag searches can just return IDs which look up from the main array when clicked
+Edit operations will load tags and desc using fresh AJAX call
+Navigating direct to a large image should load image data server-side, show it inmmediately,
+then load main data array and figure out which page to show in the background
