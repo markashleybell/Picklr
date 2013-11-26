@@ -77,8 +77,16 @@ var Picklr = (function($, Handlebars, History) {
     var _showError = function(msg) {
         _ui.statusMessage.html(_template.errorMessage({ 'message': msg }));
     };
+    // Get paging information
+    var _getPagingInfo = function () {
+        var totalFiles = _globals.data.length;
+        return {
+            currentPage: _globals.page,
+            totalFiles: totalFiles,
+            totalPages: Math.ceil(totalFiles / _config.PAGE_SIZE)
+        };
+    };
     var _populatePagination = function(data) {
-        _ui.pagingInfo.html(_template.pagingInfo(data));
         // Buffer array to efficiently concatenate output HTML
         var output = [];
         for(var i = 1; i <= data.totalPages; i ++) 
@@ -89,6 +97,8 @@ var Picklr = (function($, Handlebars, History) {
         // Buffer array to efficiently concatenate output HTML
         var output = [];
         _globals.page = page;
+        var pinfo = _getPagingInfo();
+        _ui.pagingInfo.html(_template.pagingInfo(pinfo));
         var start = ((_globals.page - 1) * _config.PAGE_SIZE);
         var end = start + _config.PAGE_SIZE;
         if(end > _globals.data.length)
@@ -103,6 +113,26 @@ var Picklr = (function($, Handlebars, History) {
         _ui.pagingPrev.html(_template.pagingPrev({ 'n': ((_globals.page > 1) ? (_globals.page - 1) : 0) }));
         _ui.pagingNext.html(_template.pagingNext({ 'n': ((_globals.page < totalPages) ? (_globals.page + 1) : 0) }));
     };
+    var _loadFiles = function(callback) {
+        $.ajax({
+            url: '/load-files',
+            cache: false,
+            type: 'GET',
+            dataType: 'json',
+        }).done(function(data) {
+            // Populate the global data array
+            _globals.data = data.files; 
+            // Populate the status bar
+            _showInfo('Data loaded.');
+            var pinfo = _getPagingInfo();
+            _populatePagination(pinfo);
+            // If a callback function has been passed in, call it
+            if(typeof callback === 'function')
+                callback();         
+        }).fail(function(request, status, error) {
+            _showError(error);
+        });
+    };
     var _loadTags = function(callback) {
         $.ajax({
             url: '/load-tags',
@@ -114,35 +144,6 @@ var Picklr = (function($, Handlebars, History) {
             // otherwise tagit autocomplete stops working...
             _globals.tags.length = 0;
             [].push.apply(_globals.tags, data.tags.split('|'));
-            // Populate the status bar
-            _showInfo('Ready.');
-            // If a callback function has been passed in, call it
-            if(typeof callback === 'function')
-                callback();         
-        }).fail(function(request, status, error) {
-            _showError(error);
-        });
-    };
-    var _loadFiles = function(page, callback) {
-        $.ajax({
-            url: '/load-files',
-            cache: false,
-            type: 'GET',
-            dataType: 'json',
-        }).done(function(data) {
-            // Populate the global data array
-            _globals.data = data.files; 
-            // Create the paging nav
-            var totalFiles = _globals.data.length;
-            var pagingData = {
-                currentPage: page,
-                totalFiles: totalFiles,
-                totalPages: Math.ceil(totalFiles / _config.PAGE_SIZE)
-            };
-            // Populate prev/next links
-            _populatePagination(pagingData);
-            // Load the first page of thumbnails
-            _page(page);
             // Populate the status bar
             _showInfo('Ready.');
             // If a callback function has been passed in, call it
@@ -373,29 +374,29 @@ var Picklr = (function($, Handlebars, History) {
                 var pageId = _globals.page;
                 History.pushState({ page: pageId, image: null }, 'Page ' + pageId, '/' + pageId);
             });
+            // Load an image in the viewer and push to history stack
+            var _loadImage = function(i) {
+                _globals.index += i;
+                var id = _globals.data[_globals.index][0];
+                // If the thumbnail of the image we're viewing isn't in the underlying
+                // thumbnail grid, load the previous page in the background
+                if(!$('#i-' + id).length) {
+                    _globals.page += i
+                    _page(_globals.page);
+                }
+                History.pushState({ page: null, image: id }, 'Image ' + id, '/file/' + id);
+            };
             // Handle viewer previous button click
             _ui.viewerPrev.on('click', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
-                _globals.index--;
-                var id = _globals.data[_globals.index][0];
-                // If the thumbnail of the image we're viewing isn't in the underlying
-                // thumbnail grid, load the previous page in the background
-                if(!$('#i-' + id).length)
-                    _page(_globals.page - 1);
-                History.pushState({ page: null, image: id }, 'Image ' + id, '/file/' + id);
+                _loadImage(-1);
             });
             // Handle viewer next button click
             _ui.viewerNext.on('click', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
-                _globals.index++;
-                var id = _globals.data[_globals.index][0];
-                // If the thumbnail of the image we're viewing isn't in the underlying
-                // thumbnail grid, load the next page in the background
-                if(!$('#i-' + id).length)
-                    _page(_globals.page + 1);
-                History.pushState({ page: null, image: id }, 'Image ' + id, '/file/' + id);
+                _loadImage(1);
             });
             // Handle cancel button click
             $('#cancel-edit').on('click', function(e) {
@@ -414,9 +415,8 @@ var Picklr = (function($, Handlebars, History) {
             // Handle user closing the window/tab
             $(window).bind('beforeunload', function () {
                 // TRY(!) to stop the user leaving in the middle of a sync operation
-                if (_globals.syncing) {
+                if (_globals.syncing)
                     return 'A sync is currently in progress.';
-                }
             });
             // Bind to History.js state change
             $(window).bind('statechange', function() {
@@ -432,7 +432,6 @@ var Picklr = (function($, Handlebars, History) {
                     if(state.data.page) {
                         _globals.page = state.data.page;
                         _page(_globals.page);
-                        
                     } else if(state.data.image) { // If the state contains an image ID, load it
                         _view(state.data.image);
                     }
@@ -440,14 +439,19 @@ var Picklr = (function($, Handlebars, History) {
             });
             // If we've got a file ID
             if(file > 0) {
-                // Figure out which page the file is on 
-                // var filePage = 0;
-                // for(var i=0; i<_globals
-                _loadFiles(1, function() { 
+                _loadFiles(function() { 
                     _view(file); 
+                    // TODO: Why doesn't this work here? statechange handler is never fired...
+                    // History.pushState({ page: null, image: file }, 'Image ' + file, '/file/' + file);
+                    // Figure out which page the file is on, then load it in the background
+                    var index = linearSearch(_globals.data, file);
+                    var filePage = Math.ceil((index + 1) / _config.PAGE_SIZE);
+                    _page(filePage);
                 });
             } else {
-                _loadFiles(_globals.page);
+                _loadFiles(function() {
+                    _page(page);
+                });
             }
             _loadTags(_sync);
         },

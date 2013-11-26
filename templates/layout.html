@@ -17,10 +17,10 @@
     <script type="text/javascript" src="{{ url_for('static', filename='js/tag-it.min.js') }}" charset="utf-8"></script>
     <script type="text/javascript" src="{{ url_for('static', filename='js/jquery.history.js') }}" charset="utf-8"></script>
     <script type="text/javascript" src="{{ url_for('static', filename='js/Picklr.js') }}" charset="utf-8"></script>
+    <script type="text/javascript"> $.each(q,function(index,f){ $(f); }); </script>
     <script type="text/javascript">
         $(function() {
             Picklr.init({{ page }}, {{ file }});
         });
     </script>
-    <script type="text/javascript"> $.each(q,function(index,f){ $(f); }); </script>
 </body>
