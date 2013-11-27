@@ -46,10 +46,10 @@
         <span>Page: {{ currentPage }}, Pages: {{ totalPages }}, Files: {{ totalFiles }}</span>
     </script>
     <script id="paging-prev-template" type="text/x-handlebars-template">
-        <span>&laquo; <a href="/{{ n }}" data-page="{{ n }}">Prev</a></span>
+        <span>&laquo; <a{{{ cls }}} href="/{{ n }}" data-page="{{ n }}">Prev</a></span>
     </script>
     <script id="paging-next-template" type="text/x-handlebars-template">
-        <span><a href="/{{ n }}" data-page="{{ n }}">Next</a> &raquo;</span>
+        <span><a{{{ cls }}} href="/{{ n }}" data-page="{{ n }}">Next</a> &raquo;</span>
     </script>
     <script id="paging-pages-template" type="text/x-handlebars-template">
         <a href="/{{ n }}" data-page="{{ n }}">{{ n }}</a>

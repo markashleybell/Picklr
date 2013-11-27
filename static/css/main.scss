@@ -594,3 +594,8 @@ $thumb-size: 140px;
 #viewer-next {
     right: 0;
 }
+
+a.disabled, a.disabled:hover {
+    color: #999;
+    text-decoration: none;
+}

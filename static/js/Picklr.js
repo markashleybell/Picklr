@@ -1,25 +1,3 @@
-function linearSearch(a, v) {
-    for(var x=0; x<a.length; x++) {
-        if(a[x][0] == v) return x;
-    }
-    return -1; // Value not found
-}
-            
-function binarySearch(a, v) {
-    var high = a.length - 1;
-    var low = 0;
-                    
-    while(low <= high)
-    {
-        mid = parseInt((low + high) / 2);
-        if(a[mid] == v) return mid;
-        else if(a[mid] > v) high = (mid - 1); // Search lower values
-        else if(a[mid] < v) low = (mid + 1); // Search upper values
-    }
-    
-    return -1; // Value not found
-}
-
 var Picklr = (function($, Handlebars, History) {
     // Configuration variables
     var _config = {
@@ -69,6 +47,30 @@ var Picklr = (function($, Handlebars, History) {
         infoMessage: null,
         errorMessage: null
     };
+    // Search the global data array for a file with the supplied ID
+    var _get = function(id) {
+        var a = _globals.data;
+
+        // Linear search
+        // for(var x=0; x<a.length; x++) {
+        //     if(a[x][0] == id) return x;
+        // }
+        // return -1; // Value not found
+
+        // Binary search
+        var high = a.length - 1;
+        var low = 0;
+                        
+        while(low <= high)
+        {
+            mid = parseInt((low + high) / 2);
+            if(a[mid][0] == id) return mid;
+            else if(a[mid][0] < id) high = (mid - 1); // Search lower values
+            else if(a[mid][0] > id) low = (mid + 1); // Search upper values
+        }
+        
+        return -1; // Value not found
+    };
     // Display an informational status
     var _showInfo = function(msg) {
         _ui.statusMessage.html(_template.infoMessage({ 'message': msg }));
@@ -110,8 +112,14 @@ var Picklr = (function($, Handlebars, History) {
         _ui.thumbs.html(output.join(''));
         // Create prev/next links
         var totalPages = Math.ceil(_globals.data.length / _config.PAGE_SIZE);
-        _ui.pagingPrev.html(_template.pagingPrev({ 'n': ((_globals.page > 1) ? (_globals.page - 1) : 0) }));
-        _ui.pagingNext.html(_template.pagingNext({ 'n': ((_globals.page < totalPages) ? (_globals.page + 1) : 0) }));
+        _ui.pagingPrev.html(_template.pagingPrev({ 
+            'n': ((_globals.page > 1) ? (_globals.page - 1) : 0),
+            'cls': ((_globals.page > 1) ? '' : ' class="disabled"')
+        }));
+        _ui.pagingNext.html(_template.pagingNext({ 
+            'n': ((_globals.page < totalPages) ? (_globals.page + 1) : 0),
+            'cls': ((_globals.page < totalPages) ? '' : ' class="disabled"')
+        }));
     };
     var _search = function(query, callback) {
         $.ajax({
@@ -169,7 +177,7 @@ var Picklr = (function($, Handlebars, History) {
         });
     };
     var _view = function(id) {
-        _globals.index = linearSearch(_globals.data, id);
+        _globals.index = _get(id);
         var html = _template.viewer({ 
             'path': _globals.data[_globals.index][1]
         });
@@ -344,8 +352,11 @@ var Picklr = (function($, Handlebars, History) {
             var _loadPage = function(e) {
                 e.preventDefault();
                 e.stopPropagation();
-                var page = parseInt($(this).data('page'), 10);
-                History.pushState({ page: page, image: null }, 'Page ' + page, '/' + page);
+                var a = $(this);
+                if(!a.hasClass('disabled')) {
+                    var page = parseInt(a.data('page'), 10);
+                    History.pushState({ page: page, image: null }, 'Page ' + page, '/' + page);
+                }
             };
             // Handle click on a page number link
             _ui.pagingPages.on('click', 'a', _loadPage);
@@ -459,7 +470,7 @@ var Picklr = (function($, Handlebars, History) {
                     // TODO: Why doesn't this work here? statechange handler is never fired...
                     // History.pushState({ page: null, image: file }, 'Image ' + file, '/file/' + file);
                     // Figure out which page the file is on, then load it in the background
-                    var index = linearSearch(_globals.data, file);
+                    var index = _get(file);
                     var filePage = Math.ceil((index + 1) / _config.PAGE_SIZE);
                     _page(filePage);
                 });
