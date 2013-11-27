@@ -12,6 +12,7 @@ var Picklr = (function($, Handlebars, History) {
         syncing: false, 
         timer: null,
         index: null,
+        allData: [],
         data: []
     };
     // Cached UI elements
@@ -48,9 +49,7 @@ var Picklr = (function($, Handlebars, History) {
         errorMessage: null
     };
     // Search the global data array for a file with the supplied ID
-    var _get = function(id) {
-        var a = _globals.data;
-
+    var _get = function(a, id) {
         // Linear search
         // for(var x=0; x<a.length; x++) {
         //     if(a[x][0] == id) return x;
@@ -122,19 +121,38 @@ var Picklr = (function($, Handlebars, History) {
         }));
     };
     var _search = function(query, callback) {
-        $.ajax({
-            url: '/search?q=' + query,
-            cache: false,
-            type: 'GET',
-            dataType: 'json',
-        }).done(function(data) {
-            
-            // If a callback function has been passed in, call it
-            if(typeof callback === 'function')
-                callback();         
-        }).fail(function(request, status, error) {
-            _showError(error);
-        });
+        // If there's no query, just reset the view to all files
+        if(query === '') {
+            _globals.data = _globals.allData;
+            _page(1);
+            var pinfo = _getPagingInfo();
+            _populatePagination(pinfo);
+        } else {
+            $.ajax({
+                url: '/search?q=' + query,
+                cache: false,
+                type: 'GET',
+                dataType: 'json',
+            }).done(function(data) {
+                // Empty the global data array
+                _globals.data = [];
+                // Here data.results is an array containing file IDs matching the query
+                var results = data.results;
+                for(var i=0; i<results.length; i++) {
+                    var index = _get(_globals.allData, results[i]);
+                    _globals.data.push(_globals.allData[index]);
+                }
+                // Load the page and adjust the pagination links
+                _page(1);
+                var pinfo = _getPagingInfo();
+                _populatePagination(pinfo);
+                // If a callback function has been passed in, call it
+                if(typeof callback === 'function')
+                    callback();         
+            }).fail(function(request, status, error) {
+                _showError(error);
+            });
+        }
     };
     var _loadFiles = function(callback) {
         $.ajax({
@@ -144,7 +162,8 @@ var Picklr = (function($, Handlebars, History) {
             dataType: 'json',
         }).done(function(data) {
             // Populate the global data array
-            _globals.data = data.files; 
+            _globals.allData = data.files; 
+            _globals.data = _globals.allData;
             // Populate the status bar
             _showInfo('Data loaded.');
             var pinfo = _getPagingInfo();
@@ -177,7 +196,7 @@ var Picklr = (function($, Handlebars, History) {
         });
     };
     var _view = function(id) {
-        _globals.index = _get(id);
+        _globals.index = _get(_globals.data, id);
         var html = _template.viewer({ 
             'path': _globals.data[_globals.index][1]
         });
@@ -470,7 +489,7 @@ var Picklr = (function($, Handlebars, History) {
                     // TODO: Why doesn't this work here? statechange handler is never fired...
                     // History.pushState({ page: null, image: file }, 'Image ' + file, '/file/' + file);
                     // Figure out which page the file is on, then load it in the background
-                    var index = _get(file);
+                    var index = _get(_globals.data, file);
                     var filePage = Math.ceil((index + 1) / _config.PAGE_SIZE);
                     _page(filePage);
                 });
