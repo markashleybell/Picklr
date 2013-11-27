@@ -121,9 +121,11 @@ var Picklr = (function($, Handlebars, History) {
         }));
     };
     var _search = function(query, callback) {
-        // If there's no query, just reset the view to all files
+        // If there's no query, 
         if(query === '') {
+            // Just reset the view to all files
             _globals.data = _globals.allData;
+            // And reload the first page
             _page(1);
             var pinfo = _getPagingInfo();
             _populatePagination(pinfo);
@@ -138,6 +140,8 @@ var Picklr = (function($, Handlebars, History) {
                 _globals.data = [];
                 // Here data.results is an array containing file IDs matching the query
                 var results = data.results;
+                // Push any items from allData with matching IDs on 
+                // to the global data array
                 for(var i=0; i<results.length; i++) {
                     var index = _get(_globals.allData, results[i]);
                     _globals.data.push(_globals.allData[index]);
@@ -154,6 +158,7 @@ var Picklr = (function($, Handlebars, History) {
             });
         }
     };
+    // Load all files for the current user into the global data array
     var _loadFiles = function(callback) {
         $.ajax({
             url: '/load-files',
@@ -162,7 +167,10 @@ var Picklr = (function($, Handlebars, History) {
             dataType: 'json',
         }).done(function(data) {
             // Populate the global data array
+            // We keep a copy of the data in allData so that it can be
+            // restored later without re-requesting the whole payload
             _globals.allData = data.files; 
+            // Initially we point the global array to the allData array
             _globals.data = _globals.allData;
             // Populate the status bar
             _showInfo('Data loaded.');
@@ -175,6 +183,7 @@ var Picklr = (function($, Handlebars, History) {
             _showError(error);
         });
     };
+    // Load all tags for the current user
     var _loadTags = function(callback) {
         $.ajax({
             url: '/load-tags',
@@ -195,6 +204,7 @@ var Picklr = (function($, Handlebars, History) {
             _showError(error);
         });
     };
+    // Show a file in the full-screen file viewer
     var _view = function(id) {
         _globals.index = _get(_globals.data, id);
         var html = _template.viewer({ 
@@ -208,6 +218,7 @@ var Picklr = (function($, Handlebars, History) {
         // TODO: Set the height of the overlay AFTER the image has loaded
         // _ui.overlay.height($(document).height());
     };
+    // Hide the file viewer
     var _hideViewer = function() {
         _ui.overlay.hide();
         _ui.viewerContainer.hide();
@@ -262,8 +273,6 @@ var Picklr = (function($, Handlebars, History) {
             [].push.apply(_globals.tags, data.newtags);
             // Update the data atributes of the edited item
             var item = $('#i-' + _ui.idInput.val()).find('a.edit-tags').first();
-            item.data('tags', _ui.tagInput.val());
-            item.data('description', _ui.descriptionInput.val());
             _showInfo('Saved.');
         }).fail(function(request, status, error) {
             _showError(error);
@@ -349,16 +358,28 @@ var Picklr = (function($, Handlebars, History) {
                 e.preventDefault();
                 e.stopPropagation();
                 var link = $(this);
-                _ui.thumbs.find('div').removeClass('selected');
-                link.parent().addClass('selected');
-                _ui.idInput.val(link.data('fileid'));
-                _ui.descriptionInput.val(link.data('description'))
-                _ui.tagInput.tagit('removeAll');
-                $.each(link.data('tags').split('|'), function(i, item) {
-                    _ui.tagInput.tagit('createTag', item);
+                var id = link.data('fileid');
+                $.ajax({
+                    url: '/load-metadata/' + id,
+                    cache: false,
+                    type: 'GET',
+                    dataType: 'json',
+                }).done(function(data) {
+                    _ui.thumbs.find('div').removeClass('selected');
+                    link.parent().addClass('selected');
+                    _ui.idInput.val(id);
+                    _ui.descriptionInput.val(data.description)
+                    _ui.tagInput.tagit('removeAll');
+                    if(data.tags != null) {
+                        $.each(data.tags.split('|'), function(i, item) {
+                            _ui.tagInput.tagit('createTag', item);
+                        });
+                    }
+                    _ui.metaDataForm.show();
+                    _ui.metaDataForm.find('.tagit input[type=text]:first').focus();
+                }).fail(function(request, status, error) {
+                    _showError(error);
                 });
-                _ui.metaDataForm.show();
-                _ui.metaDataForm.find('.tagit input[type=text]:first').focus();
             });
             // Handle thumbnail click (view large version)
             _ui.thumbs.on('click', 'a.view-large', function(e) {

@@ -389,6 +389,20 @@ def refetch_thumbnail():
         abort(403) 
 
 
+@app.route("/load-metadata/<int:id>")
+@api_login_required
+def load_metadata(id):
+    db = get_db()
+    access_token = get_db_access_token(db, current_user.id)
+    if access_token is not None:
+        row = db.execute("SELECT id, description, tags FROM files WHERE id = ?", [id]).fetchone()
+        if row is None:
+            abort(404)
+        return jsonify(row)
+    else:
+        abort(403) 
+
+
 @app.route("/save", methods=['POST'])
 @api_login_required
 def save():
