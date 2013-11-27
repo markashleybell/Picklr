@@ -414,7 +414,9 @@ var Picklr = (function($, Handlebars, History) {
             _ui.statusMessage.on('click', '#reload', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
-                alert('TODO: reload global data array at this point!');
+                _loadFiles(function() {
+                    _page(1);
+                });
             });
             // Handle edit form submit
             _ui.metaDataForm.on('submit', function(e) {
@@ -430,7 +432,6 @@ var Picklr = (function($, Handlebars, History) {
                 e.stopPropagation();
                 _ui.metaDataForm.hide();
                 _ui.thumbs.find('div').removeClass('selected');
-                _globals.page = 1;
                 _search(_ui.queryInput.val());
             });
             // Handle cancel button click
