@@ -204,7 +204,22 @@ var Picklr = (function($, Handlebars, History) {
             _showError(error);
         });
     };
-    // Show a file in the full-screen file viewer
+    // Load an image in the viewer and push to history stack (by global data array index)
+    var _loadFile = function(i) {
+        var newIndex = (_globals.index + i);
+        if(newIndex >= 0 && newIndex < _globals.data.length) {
+            _globals.index += i;
+            var id = _globals.data[_globals.index][0];
+            // If the thumbnail of the image we're viewing isn't in the underlying
+            // thumbnail grid, load the previous page in the background
+            if(!$('#i-' + id).length) {
+                _globals.page += i
+                _page(_globals.page);
+            }
+            History.pushState({ page: null, image: id }, 'Image ' + id, '/file/' + id);
+        }
+    };
+    // Show a file in the full-screen file viewer (by id)
     var _view = function(id) {
         _globals.index = _get(_globals.data, id);
         var html = _template.viewer({ 
@@ -213,8 +228,8 @@ var Picklr = (function($, Handlebars, History) {
         _ui.overlay.show();
         _ui.viewer.html(html);
         _ui.viewerContainer.show();
-        _ui.viewerPrev.show();
-        _ui.viewerNext.show();
+        _ui.viewerPrev[(_globals.index == 0) ? 'hide' : 'show']();
+        _ui.viewerNext[(_globals.index == (_globals.data.length - 1)) ? 'hide' : 'show']();
         // TODO: Set the height of the overlay AFTER the image has loaded
         // _ui.overlay.height($(document).height());
     };
@@ -441,29 +456,17 @@ var Picklr = (function($, Handlebars, History) {
                 var pageId = _globals.page;
                 History.pushState({ page: pageId, image: null }, 'Page ' + pageId, '/' + pageId);
             });
-            // Load an image in the viewer and push to history stack
-            var _loadImage = function(i) {
-                _globals.index += i;
-                var id = _globals.data[_globals.index][0];
-                // If the thumbnail of the image we're viewing isn't in the underlying
-                // thumbnail grid, load the previous page in the background
-                if(!$('#i-' + id).length) {
-                    _globals.page += i
-                    _page(_globals.page);
-                }
-                History.pushState({ page: null, image: id }, 'Image ' + id, '/file/' + id);
-            };
             // Handle viewer previous button click
             _ui.viewerPrev.on('click', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
-                _loadImage(-1);
+                _loadFile(-1);
             });
             // Handle viewer next button click
             _ui.viewerNext.on('click', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
-                _loadImage(1);
+                _loadFile(1);
             });
             // Handle cancel button click
             $('#cancel-edit').on('click', function(e) {
