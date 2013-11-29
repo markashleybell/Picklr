@@ -419,6 +419,10 @@ html,body {
     padding:0;
 }
 
+body {
+    overflow-y: scroll;
+}
+
 // For some reason, paragraph margin adds margin to 
 // container div as well... good old CSS.
 p {

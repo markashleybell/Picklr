@@ -382,6 +382,10 @@ html, body {
     padding: 0;
 }
 
+body {
+    overflow-y: scroll;
+}
+
 p {
     margin: 0;
     padding: 1em 0;
