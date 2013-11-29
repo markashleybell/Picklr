@@ -532,16 +532,30 @@ $thumb-size: 140px;
     *margin-top: expression(this.offsetHeight < this.parentNode.offsetHeight ? parseInt((this.parentNode.offsetHeight - this.offsetHeight) / 2) + "px" : "0");
 
     div {
-        margin: 40px 0;
-        border: 2px solid #000;
+        margin: 44px 0;
+        
         -webkit-box-sizing: border-box;
         -moz-box-sizing: border-box;
         -ms-box-sizing: border-box;
         box-sizing: border-box;
+
+        background: url(/static/img/ajax-loader.gif) center top no-repeat;
         img {
             width: 100%;
             display: block;
-            
+            opacity: 0;
+            -webkit-transition: opacity 350ms;
+            -moz-transition: opacity 350ms;
+            -ms-transition: opacity 350ms;
+            transition: opacity 350ms;
+        }
+
+        &.loaded {
+            img {
+                opacity: 1;
+                border: 2px solid #000;
+                margin: 40px 0;
+            }
         }
     }
 }

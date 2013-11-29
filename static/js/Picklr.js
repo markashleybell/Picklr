@@ -312,6 +312,10 @@ var Picklr = (function($, Handlebars, History) {
             _showError(error);
         });
     };
+    var _imgLoaded = function(img){
+        var $img = $(img);
+        $img.parent().addClass('loaded');
+    };
     // Public methods
     return {
         // Initialise the app on load
@@ -525,6 +529,7 @@ var Picklr = (function($, Handlebars, History) {
             }
             _loadTags(_sync);
         },
+        imgLoaded: _imgLoaded,
         globals: _globals,
         ui: _ui
     }

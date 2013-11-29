@@ -479,16 +479,26 @@ p {
     *margin-top: expression(this.offsetHeight < this.parentNode.offsetHeight ? parseInt((this.parentNode.offsetHeight - this.offsetHeight) / 2) + "px" : "0");
 }
 #large-image div {
-    margin: 40px 0;
-    border: 2px solid #000;
+    margin: 44px 0;
     -webkit-box-sizing: border-box;
     -moz-box-sizing: border-box;
     -ms-box-sizing: border-box;
     box-sizing: border-box;
+    background: url(/static/img/ajax-loader.gif) center top no-repeat;
 }
 #large-image div img {
     width: 100%;
     display: block;
+    opacity: 0;
+    -webkit-transition: opacity 350ms;
+    -moz-transition: opacity 350ms;
+    -ms-transition: opacity 350ms;
+    transition: opacity 350ms;
+}
+#large-image div.loaded img {
+    opacity: 1;
+    border: 2px solid #000;
+    margin: 40px 0;
 }
 
 #status-message {

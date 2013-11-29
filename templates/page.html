@@ -55,7 +55,7 @@
         <a href="/{{ n }}" data-page="{{ n }}">{{ n }}</a>
     </script>
     <script id="viewer-template" type="text/x-handlebars-template">
-        <div><img src="https://dl.dropboxusercontent.com/s/{{ path }}" /></div>
+        <div><img src="https://dl.dropboxusercontent.com/s/{{ path }}" onload="Picklr.imgLoaded(this);" /></div>
     </script>
     <script id="status-message-info-template" type="text/x-handlebars-template">
         <span class="info">INFO: {{{ message }}}</span>
